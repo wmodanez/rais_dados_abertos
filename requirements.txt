@@ -1,0 +1,7 @@
+py7zr
+tqdm
+argparse
+dask
+dask[dataframe]
+pyarrow
+fastparquet
