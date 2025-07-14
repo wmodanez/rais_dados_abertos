@@ -30,7 +30,11 @@ Este projeto automatiza o download e processamento dos microdados da RAIS dispon
 - **Filtros automáticos**: Exclusão de arquivos EST e NI
 - **Limpeza de dados**: Remoção automática de acentos nas colunas
 - **Formato otimizado**: Compressão Snappy no Parquet
-- **Barras de progresso**: Acompanhamento visual do processamento
+- **Logging detalhado**: Acompanhamento visual com barras de progresso individuais
+- **Monitoramento em tempo real**: Mostra qual arquivo está sendo processado e seu status
+- **Logs em arquivo**: Sistema completo de logging em arquivos diários para auditoria
+- **Medição de tempo**: Cronômetro automático para cada etapa e tempo total de execução
+- **Formato consolidado flexível**: Arquivo único (.parquet) ou múltiplos arquivos (padrão)
 
 ## 📦 Instalação
 
@@ -138,6 +142,12 @@ python main.py --modo extrair-converter --anos 2020
 
 # Descompactar + converter + consolidar (sem baixar)
 python main.py --modo processar --anos 2020
+
+# Processar com arquivo consolidado único
+python main.py --modo processar --anos 2020 --consolidado-unico
+
+# Processar preservando arquivos intermediários
+python main.py --modo processar --anos 2020 --preservar
 ```
 
 ### Otimização de Performance
@@ -180,6 +190,16 @@ python main.py --modo descompactar --pausar 2
 
 # Configurar tamanho dos chunks
 python main.py --modo converter --chunksize 50000
+
+# Controle de verbosidade do console
+python main.py --modo completo --log-level DEBUG    # Muito detalhado
+python main.py --modo completo --log-level INFO     # Padrão (recomendado)
+python main.py --modo completo --log-level WARNING  # Apenas avisos/erros
+python main.py --modo completo --log-level ERROR    # Apenas erros
+
+# Arquivo consolidado como arquivo único
+python main.py --modo completo --consolidado-unico  # Arquivo .parquet único
+python main.py --modo processar --consolidado-unico # Sem download, arquivo único
 ```
 
 ## 📁 Estrutura de Diretórios
@@ -201,6 +221,10 @@ rais/
 │   │   └── RAIS_2020_consolidado/  # Arquivo consolidado
 │   ├── 2021/
 │   └── 2022/
+├── logs/                       # Logs diários do sistema
+│   ├── rais_2024_01_15.log
+│   ├── rais_2024_01_16.log
+│   └── rais_2024_01_17.log
 └── main.py                     # Script principal
 ```
 
@@ -224,11 +248,13 @@ rais/
 | `--baixar-opcao` | string | Opção de download (atual/todos/faltantes) |
 | `--faixa-anos` | int int | Faixa de anos para baixar |
 | `--pular-download` | flag | Pula etapa de download no modo completo |
+| `--log-level` | string | Nível de log do console (DEBUG/INFO/WARNING/ERROR/CRITICAL) |
+| `--consolidado-unico` | flag | Salva consolidado como arquivo único (padrão: múltiplos arquivos) |
 
 ## 🔍 Filtros Automáticos
 
 O sistema automaticamente exclui arquivos que contenham:
-- **EST**: Dados de estabelecimentos
+- **_EST**: Dados de estabelecimentos
 - **NI**: Dados não identificados
 
 Esta filtragem é aplicada em todas as etapas do processamento.
@@ -239,7 +265,32 @@ Os dados finais são salvos em formato Parquet com:
 - **Compressão**: Snappy
 - **Colunas limpas**: Sem acentos e caracteres especiais
 - **Metadados**: Coluna `fonte_arquivo` para rastreabilidade
-- **Estrutura**: Um arquivo consolidado por ano
+- **Estrutura flexível**: Arquivo único ou múltiplos arquivos
+
+#### Formatos de Consolidação
+
+**📁 Múltiplos Arquivos (Padrão)**
+```bash
+python main.py --modo completo
+# Resultado: parquet/2020/RAIS_2020_consolidado/ (diretório com múltiplos .parquet)
+```
+- **Vantagens**: Paralelização de leitura, flexibilidade
+- **Ideal para**: Análises com Dask/Spark, datasets muito grandes
+
+**📄 Arquivo Único**
+```bash
+python main.py --modo completo --consolidado-unico
+# Resultado: parquet/2020/RAIS_2020_consolidado.parquet (arquivo único)
+```
+- **Vantagens**: Simplicidade, compatibilidade universal
+- **Ideal para**: Análises com Pandas, transferência, backup
+
+#### Estrutura de Saída
+
+| Modo | Local | Formato | Tamanho Típico |
+|------|-------|---------|----------------|
+| **Padrão** | `parquet/2020/RAIS_2020_consolidado/` | Diretório | 2-8 GB |
+| **Único** | `parquet/2020/RAIS_2020_consolidado.parquet` | Arquivo | 2-8 GB |
 
 ## 📊 Performance
 
@@ -286,6 +337,7 @@ Workers são processos ou threads paralelos que executam tarefas simultaneamente
 - **Função**: Converter arquivos TXT para Parquet em paralelo
 - **Limitação**: RAM disponível (cada processo consome ~2-4GB)
 - **Compatibilidade**: Windows/Linux (com proteção de spawn)
+- **Monitoramento**: Progresso detalhado por arquivo (detectar separador → analisar colunas → carregar dados → salvar)
 
 #### Configurações Automáticas
 
@@ -303,6 +355,132 @@ O sistema detecta automaticamente os recursos e calcula valores otimizados:
 - **Extração**: CPU + I/O, usa CPUs físicos + 2 (máx 8)  
 - **Conversão**: Memória intensiva, limitado pela RAM disponível
 - **Compatibilidade**: Testado em Windows 10/11 e Linux (Ubuntu/CentOS)
+
+#### Sistema de Monitoramento
+
+O sistema fornece feedback visual detalhado durante todo o processamento:
+
+**🌐 Download FTP**
+```
+🌐 Download FTP: 45%|████▌     | 23/51 [01:23<01:47, 1.2arquivo/s] ✅15 ❌1
+📥 RAIS_2020_AC.7z: 45%|████▌ | 234MB/521MB [00:23<00:28, 10.2MB/s]
+✅ RAIS_2020_AC.7z baixado com sucesso
+```
+
+**📦 Extração 7z**
+```
+📦 Extração 7z: 78%|███████▊  | 35/45 [02:15<00:32, 2.1arquivo/s] ✅32 ❌1
+📦 Extraindo RAIS_2020_AC.7z: 100%|██████████| 521MB/521MB [00:45<00:00, 11.5MB/s]
+✅ RAIS_2020_AC.7z descompactado com sucesso (1 arquivos extraídos)
+```
+
+**🔄 Conversão TXT→Parquet**
+```
+🔄 TXT→Parquet: 23%|██▎       | 12/52 [03:45<12:30, 1.8s/arquivo] ✅11 ❌0
+🔄 Convertendo RAIS_2020_AC.txt (1.2GB): 60%|██████    | 60/100 [01:23<00:55] Salvando Parquet...
+✅ RAIS_2020_AC.txt → Parquet (47 colunas, 89.3MB)
+```
+
+**📊 Consolidação**
+```
+📊 Iniciando consolidação de 27 arquivos...
+📖 Lendo Parquets 2020: 85%|████████▌ | 23/27 [00:45<00:08, 1.9arquivo/s]
+    ✅ RAIS_2020_AC: 123,456 linhas, 47 colunas
+🔗 Concatenando 27 DataFrames...
+📈 Resultado: 3,456,789 linhas, 48 colunas
+💾 Salvando arquivo consolidado...
+✅ Arquivo consolidado criado: 2.34 GB
+```
+
+#### Sistema de Logging
+
+O sistema mantém logs detalhados em arquivos diários para auditoria e troubleshooting:
+
+**📁 Estrutura de Logs**
+```
+rais/
+├── logs/
+│   ├── rais_2024_01_15.log    # Log do dia 15/01/2024
+│   ├── rais_2024_01_16.log    # Log do dia 16/01/2024
+│   └── rais_2024_01_17.log    # Log atual
+└── main.py
+```
+
+**📊 Níveis de Log**
+- **DEBUG**: Detalhes técnicos completos (separadores, colunas, tempos individuais)
+- **INFO**: Etapas principais, início/fim de processos, estatísticas (padrão console)
+- **WARNING**: Situações que merecem atenção mas não impedem execução
+- **ERROR**: Erros que impedem processamento de arquivos específicos
+- **CRITICAL**: Erros críticos que param o sistema
+
+**🎛️ Configuração de Níveis**
+```bash
+# Nível padrão (INFO) - mostra etapas principais
+python main.py --modo completo
+
+# Modo verboso (DEBUG) - mostra todos os detalhes
+python main.py --modo completo --log-level DEBUG
+
+# Modo silencioso (WARNING) - apenas avisos e erros
+python main.py --modo completo --log-level WARNING
+
+# Apenas erros (ERROR) - console muito limpo
+python main.py --modo completo --log-level ERROR
+```
+
+**📝 Arquivo vs Console**
+- **Arquivo**: Sempre grava TODOS os níveis (DEBUG+) para auditoria completa
+- **Console**: Nível configurável conforme parâmetro `--log-level`
+
+**📝 Exemplo de Conteúdo do Log**
+```
+2024-01-17 14:30:15 | INFO     | main                 | RAIS - Sistema de Processamento Iniciado
+2024-01-17 14:30:15 | INFO     | main                 | Arquivo de log: logs/rais_2024_01_17.log
+2024-01-17 14:30:16 | INFO     | calcular_workers_oti | Recursos do sistema detectados:
+2024-01-17 14:30:16 | INFO     | calcular_workers_oti |   - CPUs físicos: 8
+2024-01-17 14:30:16 | INFO     | calcular_workers_oti |   - CPUs lógicos: 16
+2024-01-17 14:30:16 | INFO     | calcular_workers_oti |   - Memória RAM: 32.0 GB
+2024-01-17 14:30:16 | INFO     | main                 | Argumentos da linha de comando: {'anos': [2020], 'modo': 'completo'}
+2024-01-17 14:30:16 | INFO     | baixar_dados_ftp     | INICIANDO ETAPA DE DOWNLOAD DO FTP
+2024-01-17 14:30:17 | DEBUG    | baixar_arquivo_ftp   | Iniciando download de RAIS_2020_AC.7z do ano 2020
+2024-01-17 14:30:45 | INFO     | baixar_arquivo_ftp   | Download concluído: RAIS_2020_AC.7z (521.3MB em 28.2s, 18.5MB/s)
+2024-01-17 14:31:20 | INFO     | descompactar_arquivo | Extração concluída: RAIS_2020_AC.7z (1 arquivos em 35.1s)
+2024-01-17 14:31:21 | INFO     | converter_arquivo_wo | Iniciando conversão de RAIS_2020_AC.txt (1234.5MB)
+2024-01-17 14:32:45 | DEBUG    | converter_arquivo_wo | Separador detectado para RAIS_2020_AC.txt: ';'
+2024-01-17 14:32:46 | DEBUG    | converter_arquivo_wo | Arquivo RAIS_2020_AC.txt possui 47 colunas
+2024-01-17 14:34:12 | INFO     | converter_arquivo_wo | Conversão concluída: RAIS_2020_AC.txt → RAIS_2020_AC.parquet (47 colunas, 89.3MB em 171.2s)
+```
+
+#### Sistema de Medição de Tempo
+
+O sistema automaticamente mede e reporta o tempo de execução de cada etapa:
+
+**⏱️ Medição Automática**
+```bash
+# Ao final de qualquer execução, você verá:
+============================================================
+📊 RESUMO DOS TEMPOS DE EXECUÇÃO
+============================================================
+⏱️  Download FTP                  : 02m45s
+⏱️  Descompactação               : 01m23s
+⏱️  Conversão TXT→Parquet        : 08m17s
+⏱️  Consolidação Parquet         : 00m42s
+------------------------------------------------------------
+⏱️  TEMPO TOTAL                  : 13m07s
+============================================================
+```
+
+**📊 Logs Detalhados**
+- Cada etapa registra tempo de início e fim nos logs
+- Arquivos individuais mostram tempo de processamento
+- Velocidades de download e conversão são calculadas
+- Relatório final com breakdown completo
+
+**🎯 Benefícios**
+- **Otimização**: Identificar etapas mais lentas
+- **Planejamento**: Estimar tempo para grandes volumes
+- **Monitoramento**: Acompanhar performance ao longo do tempo
+- **Debugging**: Detectar gargalos de performance
 
 ## 🛠️ Desenvolvimento
 
@@ -324,6 +502,33 @@ Este projeto é distribuído sob licença MIT. Veja LICENSE para mais detalhes.
 
 ## 🔧 Troubleshooting
 
+### Análise de Logs
+
+Os logs são essenciais para identificar problemas e otimizar performance:
+
+```bash
+# Visualizar log do dia atual
+tail -f logs/rais_$(date +%Y_%m_%d).log
+
+# Buscar erros específicos
+grep "ERROR" logs/rais_2024_01_17.log
+
+# Analisar performance de downloads
+grep "Download concluído" logs/rais_2024_01_17.log
+
+# Verificar tempo de conversão
+grep "Conversão concluída" logs/rais_2024_01_17.log
+
+# Buscar arquivos problemáticos
+grep "Erro durante" logs/rais_2024_01_17.log
+
+# Analisar tempos de execução
+grep "⏱️" logs/rais_2024_01_17.log
+
+# Verificar se arquivos foram limpos
+grep "Removendo arquivos" logs/rais_2024_01_17.log
+```
+
 ### Problemas Comuns Windows
 ```cmd
 # Erro de codificação
@@ -336,6 +541,12 @@ python main.py --workers-convert 1
 
 # Problema com paths longos
 # Ativar suporte a paths longos no Windows 10/11
+
+# Verificar logs para detalhes
+type logs\rais_%date:~-4,4%_%date:~-10,2%_%date:~-7,2%.log
+
+# Verificar se consolidado foi criado corretamente
+dir parquet\2020\RAIS_2020_consolidado*
 ```
 
 ### Problemas Comuns Linux
@@ -364,6 +575,32 @@ sudo apt-get install python3-dev python3-pip
 - Configure ulimit para mais arquivos abertos: `ulimit -n 4096`
 - Use ext4 ou xfs para melhor performance com arquivos grandes
 - Configure swappiness baixo: `echo 10 | sudo tee /proc/sys/vm/swappiness`
+
+### Problemas com Novas Funcionalidades
+
+**Arquivos não sendo limpos no modo processar:**
+```bash
+# Verificar se --preservar está ativo (impede limpeza)
+python main.py --modo processar --anos 2020  # Limpa automaticamente
+
+# Forçar preservação
+python main.py --modo processar --anos 2020 --preservar
+```
+
+**Erro com arquivo consolidado único:**
+```bash
+# Se erro de memória com --consolidado-unico, use modo padrão
+python main.py --modo processar --anos 2020  # Múltiplos arquivos
+
+# Ou reduza workers
+python main.py --modo processar --anos 2020 --consolidado-unico --workers-convert 1
+```
+
+**Tempos não aparecendo:**
+```bash
+# Verificar nível de log (INFO+ necessário para ver tempos)
+python main.py --modo processar --anos 2020 --log-level INFO
+```
 
 ## 📞 Suporte
 
