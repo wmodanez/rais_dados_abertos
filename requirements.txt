@@ -5,3 +5,4 @@ dask
 dask[dataframe]
 pyarrow
 fastparquet
+psutil
