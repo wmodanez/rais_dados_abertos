@@ -165,5 +165,6 @@ dados-abertos-zip/
 dados-abertos/
 parquet/
 docs/
+logs/
 
 test*
