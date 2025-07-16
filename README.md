@@ -9,12 +9,13 @@ Este projeto automatiza o download e processamento dos microdados da RAIS dispon
 - Baixa automaticamente os dados do FTP oficial
 - Descompacta arquivos .7z
 - Converte arquivos TXT para formato Parquet otimizado
-- 🆕 Adiciona coluna ANO_RAIS automaticamente nos arquivos processados
+- Adiciona coluna ANO_RAIS automaticamente nos arquivos processados
 - Consolida dados por ano em arquivos únicos
-- 🆕 Consolida todos os anos em uma única pasta/arquivo
-- Processa dados em paralelo para máxima performance
-- 🆕 **Verificação automática de integridade** com re-download imediato
-- 🆕 **Sincronização inteligente** com detecção de arquivos faltantes/corrompidos
+- Consolida todos os anos em uma única pasta/arquivo
+- **Processamento com pipeline otimizado** usando múltiplos processos
+- **Remoção automática de colunas desnecessárias** para otimização de espaço
+- **Verificação automática de integridade** com re-download imediato
+- **Sincronização inteligente** com detecção de arquivos faltantes/corrompidos
 
 ## 🚀 Funcionalidades
 
@@ -23,13 +24,12 @@ Este projeto automatiza o download e processamento dos microdados da RAIS dispon
 - **descompactar**: Extração de arquivos .7z
 - **converter**: Conversão de TXT para Parquet
 - **consolidar**: Consolidação de dados por ano
-- 🆕 **consolidar-geral**: Consolidação de todos os anos em uma pasta única
+- **consolidar-geral**: Consolidação de todos os anos em uma pasta única
 - **extrair-converter**: Descompactar + converter (sem consolidar)
-- 🚀 **completo**: **Pipeline otimizado completo** (baixar → processamento por ano → consolidação)
-- 🆕 **verificar-7z**: Verificação preventiva de integridade de arquivos 7z
-- 🆕 **relatorio-problemas**: Relatório consolidado de erros encontrados
+- **completo**: **Pipeline otimizado completo** (baixar → processamento por ano → consolidação)
+- **verificar-7z**: Verificação preventiva de integridade de arquivos 7z
 
-### 🆕 Novas Funcionalidades
+### Funcionalidades Principais
 
 #### 🔍 Verificação Automática de Integridade
 - **Verificação robusta**: Detecta arquivos corrompidos, vazios ou com problemas
@@ -43,7 +43,7 @@ Este projeto automatiza o download e processamento dos microdados da RAIS dispon
 - **Limpeza automática**: Remove arquivos parciais após falhas
 - **Validação rigorosa**: Verifica tamanho e detecta arquivos vazios
 
-#### 📊 Sincronização Inteligente Melhorada
+#### 📊 Sincronização Inteligente
 - **Verificação de quantidade**: Compara número de arquivos locais vs remotos
 - **Detecção de órfãos**: Identifica arquivos locais que não existem no FTP
 - **Comparação byte-a-byte**: Detecta arquivos com tamanhos diferentes
@@ -60,8 +60,10 @@ Este projeto automatiza o download e processamento dos microdados da RAIS dispon
 - **--incremental**: Adiciona apenas anos novos à consolidação existente
 
 #### 🚀 Pipeline Paralelo Otimizado
-- **--completo**: Modo que processa cada ano completamente antes do próximo
-- **--max-anos-paralelos**: Controla quantos anos são processados simultaneamente
+- **--completo**: Modo que processa cada ano completamente antes do próximo usando pipeline assíncrono interno
+- **--max-anos-paralelos**: Controla quantos anos são processados simultaneamente (padrão: 2)
+- **Processamento multi-processo**: Usa `ProcessPoolExecutor` para paralelismo real
+- **Remoção automática de colunas**: Remove automaticamente colunas de bairros desnecessárias
 - **Vantagens**: Economia de espaço, maior eficiência, melhor aproveitamento de recursos
 
 #### Consolidação Geral
@@ -76,13 +78,13 @@ Este projeto automatiza o download e processamento dos microdados da RAIS dispon
 - **Filtros automáticos**: Exclusão de arquivos EST e NI
 - **Limpeza de dados**: Remoção automática de acentos nas colunas
 - **Formato otimizado**: Compressão Snappy no Parquet
-- 🆕 Metadados enriquecidos: Colunas `fonte_arquivo` e `ANO_RAIS` em todos os registros
+- Metadados enriquecidos: Coluna `ANO_RAIS` em todos os registros
 - **Logging detalhado**: Acompanhamento visual com barras de progresso individuais
 - **Monitoramento em tempo real**: Mostra qual arquivo está sendo processado e seu status
 - **Logs em arquivo**: Sistema completo de logging em arquivos diários para auditoria
 - **Medição de tempo**: Cronômetro automático para cada etapa e tempo total de execução
-- 🆕 **Verificação de integridade**: Sistema robusto de detecção e correção de arquivos corrompidos
-- 🆕 **Controle de erros thread-safe**: Rastreamento de erros por ano e etapa
+- **Verificação de integridade**: Sistema robusto de detecção e correção de arquivos corrompidos
+- **Controle de erros thread-safe**: Rastreamento de erros por ano e etapa
 
 ## 🎯 Exemplos de Uso
 
@@ -95,7 +97,7 @@ python main.py --modo completo --sobrescrever
 python main.py --modo completo --sobrescrever
 ```
 
-### 🆕 Download Inteligente de Anos Faltantes
+### 📥 Download Inteligente de Anos Faltantes
 
 O sistema faz **verificação inteligente** comparando arquivos locais vs. remotos:
 
@@ -150,7 +152,7 @@ python main.py --modo baixar --listar
 - 🔄 **Retomada automática**: Continua de onde parou em caso de interrupção
 - 📊 **Feedback detalhado**: Mostra exatamente o que será baixado e por quê
 
-### 🆕 Verificação Preventiva de Integridade
+### 🔍 Verificação Preventiva de Integridade
 
 #### Verificação Manual de Arquivos 7z
 ```bash
@@ -191,7 +193,7 @@ python main.py --modo completo --sobrescrever
 python main.py --modo descompactar --anos 2024 --auto-redownload false
 ```
 
-### 🆕 Sistema de Tolerância a Erros
+### 🔄 Sistema de Tolerância a Erros
 
 #### Configuração de Tolerância
 ```bash
@@ -226,30 +228,25 @@ Todas as 3 tentativas falharam para re-download de RAIS_VINC_PUB_AC.7z
 ❌ RAIS_VINC_PUB_AC.7z: Arquivo corrompido e falha no re-download
 ```
 
-### 🆕 Relatório de Problemas
+### 📋 Análise de Logs
 
-#### Gerar Relatório Consolidado
+#### Como Analisar Problemas
 ```bash
-# Analisar todos os logs de erro e gerar relatório consolidado
-python main.py --relatorio-problemas
+# Usar nível de log detalhado para diagnóstico
+python main.py --log-level DEBUG
+
+# Verificar integridade preventivamente
+python main.py --verificar-7z
 ```
 
-#### Exemplo de Relatório
+#### Onde Encontrar Informações de Erro
 ```
-📊 Encontrados 3 relatórios de erro:
-   • relatorio_erros_2025_07_15_100030.json
-   • relatorio_erros_2025_07_15_143022.json
-   • relatorio_erros_2025_07_15_165152.json
+📂 logs/
+├── rais_2025_07_15.log          # Log principal com todos os detalhes
+├── rais_2025_07_16.log          # Logs diários
+└── verificacao_7z_*.txt         # Relatórios de verificação
 
-📋 RESUMO DOS PROBLEMAS:
-   • Anos com problemas: 3
-   • Anos afetados: 2022, 2023, 2024
-   • Total de erros: 8
-   • Descompactacao: 5 erros
-   • Conversao: 2 erros
-   • Consolidacao: 1 erros
-
-💾 Relatório consolidado salvo em: logs/relatorio_consolidado_2025_07_15_170322.txt
+💡 Dica: Use --log-level DEBUG para obter informações mais detalhadas durante a execução
 ```
 
 #### Exemplo de Uso em Python
@@ -265,11 +262,11 @@ df_2020 = df[df['ANO_RAIS'] == '2020']
 # Análise temporal
 vinculos_por_ano = df.groupby('ANO_RAIS').size()
 
-# Filtrar por origem
-df_ac = df[df['fonte_arquivo'].str.contains('AC')]
+# Análise por estado requer filtros baseados em outras colunas
+# Exemplo: filtrar por município ou outras características geográficas
 ```
 
-### 🆕 Novas Funcionalidades
+### 📊 Consolidação de Dados
 
 #### Consolidação Geral (Todos os Anos)
 ```bash
@@ -335,18 +332,17 @@ rais/
 │   └── 2022/
 ├── parquet/                    # Arquivos Parquet processados
 │   ├── 2020/
-│   │   ├── arquivo1.parquet    # Individual (com ANO_RAIS e fonte_arquivo)
+│   │   ├── arquivo1.parquet    # Individual (com ANO_RAIS)
 │   │   ├── arquivo2.parquet
 │   │   └── RAIS_2020_consolidado/     # Consolidado por ano
 │   ├── 2021/
 │   ├── 2022/
-│   └── 🆕 RAIS_TODOS_ANOS_consolidado/  # 🆕 Consolidado geral (diretório)
-│   └── 🆕 RAIS_TODOS_ANOS_consolidado.parquet  # 🆕 Ou arquivo único
+│   └── RAIS_TODOS_ANOS_consolidado/  # Consolidado geral (diretório)
+│   └── RAIS_TODOS_ANOS_consolidado.parquet  # Ou arquivo único
 ├── logs/                       # Logs diários do sistema
-│   ├── rais_2025_07_15.log
-│   ├── relatorio_erros_2025_07_15_143022.json
-│   ├── verificacao_7z_2025_07_15_143022.txt
-│   └── relatorio_consolidado_2025_07_15_170322.txt
+│   ├── rais_2025_07_15.log          # Log principal com todos os detalhes
+│   ├── rais_2025_07_16.log          # Logs diários separados
+│   └── verificacao_7z_2025_07_15_143022.txt  # Relatórios de verificação
 └── main.py                     # Script principal
 ```
 
@@ -363,9 +359,9 @@ rais/
 | `--chunksize` | int | Tamanho dos chunks (padrão: 100.000) |
 | `--npartitions` | int | Número de partições Parquet |
 | `--preservar` | flag | Preserva arquivos intermediários |
-| `--🆕 preservar-descompactados` | flag | **Preserva apenas arquivos TXT, removendo Parquets intermediários** |
-| `--🆕 incremental` | flag | **Modo incremental: adiciona apenas anos novos ao consolidado geral** |
-| `--🆕 remover-anos-pos-consolidacao` | flag | **Remove pastas de anos após consolidação geral para economizar espaço** |
+| `--preservar-descompactados` | flag | **Preserva apenas arquivos TXT, removendo Parquets intermediários** |
+| `--incremental` | flag | **Modo incremental: adiciona apenas anos novos ao consolidado geral** |
+| `--remover-anos-pos-consolidacao` | flag | **Remove pastas de anos após consolidação geral para economizar espaço** |
 | `--workers-download` | int | Workers para download (padrão: auto-detectado) |
 | `--workers-extract` | int | Workers para descompactação (padrão: auto-detectado) |
 | `--workers-convert` | int | Workers para conversão (padrão: auto-detectado) |
@@ -374,11 +370,11 @@ rais/
 | `--faixa-anos` | int int | Faixa de anos para baixar |
 | `--pular-download` | flag | Pula etapa de download no modo completo |
 | `--log-level` | string | Nível de log do console (DEBUG/INFO/WARNING/ERROR/CRITICAL) |
-| `--🆕 max-tentativas-download` | int | **Número máximo de tentativas para download (padrão: 3)** |
-| `--🆕 tempo-espera-download` | int | **Tempo base de espera entre tentativas em segundos (padrão: 5)** |
-| `--🆕 auto-redownload` | flag | **Habilita re-download automático de arquivos corrompidos (padrão: ativo)** |
-| `--🆕 verificar-7z` | flag | **Executa verificação preventiva de integridade de arquivos 7z** |
-| `--🆕 relatorio-problemas` | flag | **Gera relatório consolidado de problemas encontrados** |
+| `--max-tentativas-download` | int | **Número máximo de tentativas para download (padrão: 3)** |
+| `--tempo-espera-download` | int | **Tempo base de espera entre tentativas em segundos (padrão: 5)** |
+| `--auto-redownload` | flag | **Habilita re-download automático de arquivos corrompidos (padrão: ativo)** |
+| `--verificar-7z` | flag | **Executa verificação preventiva de integridade de arquivos 7z** |
+| `--max-anos-paralelos` | int | **Número máximo de anos processados simultaneamente (padrão: 2)** |
 
 ## 🔍 Filtros Automáticos
 
@@ -400,13 +396,13 @@ python main.py --modo completo
 # Resultado: parquet/2020/RAIS_2020_consolidado/ (diretório)
 ```
 
-**🆕 Preservando Arquivos Descompactados**
+**💾 Preservando Arquivos Descompactados**
 ```bash
 python main.py --modo completo --preservar-descompactados
 # Resultado: parquet/2020/RAIS_2020_consolidado/ + mantém arquivos TXT
 ```
 
-### 🆕 Consolidação Geral (Todos os Anos)
+### 📊 Consolidação Geral (Todos os Anos)
 
 **📁 Consolidação Básica**
 ```bash
@@ -430,14 +426,14 @@ python main.py --modo consolidar-geral --sobrescrever --remover-anos-pos-consoli
 
 | Modo | Local | Formato | Colunas Extras | Tamanho Típico |
 |------|-------|---------|----------------|----------------|
-| **Ano Individual** | `parquet/2020/RAIS_2020_consolidado/` | Diretório | `fonte_arquivo`, `ANO_RAIS` | 2-8 GB |
-| **🆕 Geral Básica** | `parquet/RAIS_TODOS_ANOS_consolidado/` | Diretório | `fonte_arquivo`, `ANO_RAIS` | 20-80 GB |
-| **🆕 Geral Incremental** | `parquet/RAIS_TODOS_ANOS_consolidado/` | Diretório | `fonte_arquivo`, `ANO_RAIS` | 20-80 GB |
-| **🆕 Geral Otimizada** | `parquet/RAIS_TODOS_ANOS_consolidado/` | Diretório | `fonte_arquivo`, `ANO_RAIS` | 20-80 GB |
+| **Ano Individual** | `parquet/2020/RAIS_2020_consolidado/` | Diretório | `ANO_RAIS` | 2-8 GB |
+| **Geral Básica** | `parquet/RAIS_TODOS_ANOS_consolidado/` | Diretório | `ANO_RAIS` | 20-80 GB |
+| **Geral Incremental** | `parquet/RAIS_TODOS_ANOS_consolidado/` | Diretório | `ANO_RAIS` | 20-80 GB |
+| **Geral Otimizada** | `parquet/RAIS_TODOS_ANOS_consolidado/` | Diretório | `ANO_RAIS` | 20-80 GB |
 
 ## 🔧 Casos de Uso Avançados
 
-### 🆕 Pipeline de Produção com Verificação Robusta
+### 🚀 Pipeline de Produção com Verificação Robusta
 ```bash
 # 1. Verificação preventiva de integridade
 python main.py --verificar-7z
@@ -451,14 +447,14 @@ python main.py --modo completo --sobrescrever --preservar-descompactados
 # 4. Consolidação geral otimizada
 python main.py --modo consolidar-geral --incremental --remover-anos-pos-consolidacao
 
-# 5. Relatório final de problemas
-python main.py --relatorio-problemas
+# 5. Verificar logs para problemas (se houver)
+# Consulte os arquivos de log na pasta 'logs/' para detalhes de erros
 ```
 
-### 🆕 Recuperação de Erros Automatizada
+### 🔧 Recuperação de Erros Automatizada
 ```bash
-# 1. Identificar problemas
-python main.py --relatorio-problemas
+# 1. Identificar problemas nos logs
+# Consulte os arquivos de log na pasta 'logs/' para identificar problemas
 
 # 2. Verificar integridade dos arquivos
 python main.py --verificar-7z
@@ -489,9 +485,8 @@ df = pd.read_parquet('parquet/RAIS_TODOS_ANOS_consolidado.parquet')
 vinculos_ano = df.groupby('ANO_RAIS').size()
 vinculos_ano.plot(kind='bar', title='Evolução dos Vínculos RAIS')
 
-# Análise por estado ao longo do tempo
-df_ac = df[df['fonte_arquivo'].str.contains('AC')]
-vinculos_ac_ano = df_ac.groupby('ANO_RAIS').size()
+# Análise por estado requer filtros baseados em outras colunas
+# Exemplo: filtrar por município ou outras características geográficas
 ```
 
 ## 🆕 Estrutura de Dados Atualizada
@@ -501,8 +496,12 @@ Todos os arquivos processados incluem:
 
 | Coluna | Tipo | Descrição | Exemplo |
 |--------|------|-----------|---------|
-| `fonte_arquivo` | string | Nome do arquivo original | `RAIS_2020_AC` |
 | `ANO_RAIS` | string | Ano extraído automaticamente | `2020` |
+
+**📝 Colunas Otimizadas:**
+- `BAIRROS_SP`, `BAIRROS_FORTALEZA`, `BAIRROS_RJ`: Removidas automaticamente para otimização
+- `DISTRITOS_SP`, `REGIOES_ADM_DF`: Removidas automaticamente para otimização
+- Apenas `ANO_RAIS` é adicionada como coluna de metadados
 
 ## 📊 Performance
 
@@ -520,12 +519,12 @@ Todos os arquivos processados incluem:
 - **Armazenamento**: SSD com 200GB+ livres
 - **Rede**: Conexão estável 10Mbps+
 
-#### 🆕 Consolidação Geral
+#### 📊 Consolidação Geral
 - **RAM**: 32GB+ (recomendado para consolidação geral)
 - **Armazenamento**: 100-150GB livres para consolidação de todos os anos
 - **CPU**: 8+ cores para processamento eficiente
 
-### 🆕 Monitoramento de Integridade
+### 🔍 Monitoramento de Integridade
 
 #### **🔍 Verificação Automática Durante Processamento**
 ```
@@ -594,7 +593,7 @@ O sistema agora inclui **verificação automática de integridade** durante a de
 - **🔄 Download inteligente**: Baixa apenas arquivos faltantes ou diferentes
 - **📋 Relatório detalhado**: Mostra quais arquivos precisam ser baixados e por quê
 
-## 🆕 Migração de Versões Anteriores
+## 🔄 Migração de Versões Anteriores
 
 Se você já possui arquivos processados sem a coluna `ANO_RAIS`:
 
@@ -625,8 +624,8 @@ python main.py --modo completo --max 1 --sobrescrever
 # Verificação preventiva de integridade
 python main.py --verificar-7z
 
-# Relatório de problemas encontrados
-python main.py --relatorio-problemas
+# Consultar logs para problemas
+# Verifique os arquivos de log na pasta 'logs/' para detalhes de erros
 ```
 
 ### Logs e Auditoria
@@ -634,21 +633,21 @@ python main.py --relatorio-problemas
 - **Console**: Configurável via `--log-level`
 - **Progressão**: Barras de progresso em tempo real
 - **Tempos**: Cronômetro automático por etapa
-- **🆕 Relatórios de erro**: Arquivos JSON com detalhes técnicos
-- **🆕 Relatórios de verificação**: Arquivos TXT com análise de integridade
+- **Relatórios de verificação**: Arquivos TXT com análise de integridade
+- **Sistema de controle de erros**: Rastreamento thread-safe de erros por ano e etapa
 
 ### Erros Comuns e Soluções
 - **Memória insuficiente**: Reduza `--workers-convert` ou use `--preservar-descompactados`
 - **Espaço em disco**: Monitore espaço livre, especialmente para consolidação geral
 - **Arquivos corrompidos**: Sistema detecta e corrige automaticamente via re-download
 - **Performance lenta**: Ajuste workers manualmente ou use SSD
-- **🆕 Falhas de download**: Configure `--max-tentativas-download` e `--tempo-espera-download`
-- **🆕 Problemas de integridade**: Execute `--verificar-7z` antes do processamento
+- **Falhas de download**: Configure `--max-tentativas-download` e `--tempo-espera-download`
+- **Problemas de integridade**: Execute `--verificar-7z` antes do processamento
 
 ### Reportar Problemas
 - Consulte a documentação oficial da RAIS
 - Verifique os logs de erro para troubleshooting
-- Execute `python main.py --relatorio-problemas` para análise detalhada
+- Consulte os logs na pasta 'logs/' para análise detalhada de erros
 - Inclua informações do sistema (OS, Python, RAM) ao reportar bugs
 
 ## 🔗 Links Úteis
@@ -656,6 +655,40 @@ python main.py --relatorio-problemas
 - [RAIS - Ministério do Trabalho](http://www.rais.gov.br/)
 - [FTP Oficial](ftp://ftp.mtps.gov.br/pdet/microdados/RAIS/)
 - [Layout dos Dados](http://www.rais.gov.br/sitio/download.jsf)
+
+## 🔧 Funcionalidades Técnicas Avançadas
+
+### 🔧 **Sistema de Controle de Erros Thread-Safe**
+- **Classe**: `ControladorErros` - Rastreamento automático de erros por ano e etapa
+- **Funcionalidade**: Registra automaticamente erros durante download, descompactação, conversão e consolidação
+- **Thread-Safe**: Funciona corretamente em processamento paralelo
+- **Logging**: Todos os erros são registrados automaticamente nos logs
+
+### 🚀 **Processamento Pipeline Otimizado**
+- **Função**: `processar_sequencial_pipeline_otimizado()` - Usado no modo `--completo`
+- **Funcionalidade**: Pipeline assíncrono interno que processa download → descompactar → converter → consolidar
+- **Paralelismo**: Usa `ProcessPoolExecutor` para processamento multi-processo real
+- **Economia**: Processa um ano por vez, liberando recursos antes do próximo
+
+### ⚙️ **Configuração Automática de Workers**
+- **Função**: `calcular_workers_otimizados()` - Detecta recursos da máquina automaticamente
+- **Algoritmo**: Baseado em CPU cores, RAM disponível e tipo de operação
+- **Otimização**: Ajusta workers para download, descompactação e conversão separadamente
+
+### 🕒 **Sistema de Monitoramento de Tempo**
+- **Funções**: `iniciar_tempo()`, `finalizar_tempo()`, `mostrar_resumo_tempos()`
+- **Funcionalidade**: Cronômetro automático para cada etapa do processamento
+- **Relatório**: Mostra resumo completo de tempos ao final da execução
+
+### 🗑️ **Remoção Automática de Colunas Desnecessárias**
+- **Colunas removidas**: `BAIRROS_SP`, `BAIRROS_FORTALEZA`, `BAIRROS_RJ`, `DISTRITOS_SP`, `REGIOES_ADM_DF`
+- **Funcionalidade**: Remoção automática antes da conversão para economizar processamento
+- **Otimização**: Reduz significativamente o tamanho dos arquivos finais
+
+### 📊 **Configuração Global de Tolerância a Erros**
+- **Variável**: `config_tolerancia` - Configuração centralizada para todas as operações
+- **Parâmetros**: `max_tentativas`, `tempo_espera_base`
+- **Funcionalidade**: Controla comportamento de retry em downloads e re-downloads
 
 ## 🚀 Comandos Práticos das Novas Funcionalidades
 
@@ -711,7 +744,7 @@ python main.py --modo baixar --baixar-opcao faltantes
 
 ### 🔄 Funcionalidades Implementadas
 
-#### **🆕 Modo Incremental**
+#### **📈 Modo Incremental**
 ```bash
 # Primeira execução: consolida tudo
 python main.py --modo consolidar-geral --sobrescrever
@@ -721,19 +754,19 @@ python main.py --modo consolidar-geral --incremental
 ```
 **Vantagem**: Processa apenas dados novos, economizando tempo.
 
-#### **🆕 Gerenciamento Inteligente de Espaço**
+#### **💾 Gerenciamento Inteligente de Espaço**
 ```bash
 # Pipeline otimizado para produção
 python main.py --modo completo --preservar-descompactados
 python main.py --modo consolidar-geral --incremental --remover-anos-pos-consolidacao
 ```
 
-#### **🆕 Verificação e Correção Automática**
+#### **🔍 Verificação e Correção Automática**
 ```bash
 # Pipeline robusto com verificação completa
 python main.py --verificar-7z
 python main.py --modo completo --sobrescrever --max-tentativas-download 5
-python main.py --relatorio-problemas
+# Consulte os logs na pasta 'logs/' para verificar se houve problemas
 ```
 
 ### 📊 Comparação de Estratégias
@@ -747,7 +780,7 @@ python main.py --relatorio-problemas
 
 ### 🚀 **Modo Recomendado: Pipeline Robusto**
 
-#### **🔥 Processamento Robusto com Verificação (RECOMENDADO)**
+#### **⚡ Processamento Robusto com Verificação (RECOMENDADO)**
 ```bash
 # Modo completo com verificação automática de integridade
 python main.py --modo completo --sobrescrever --preservar-descompactados --max-tentativas-download 5
@@ -767,12 +800,12 @@ python main.py --modo completo --sobrescrever --max-anos-paralelos 3 --max-tenta
 
 ### 🎯 Casos de Uso Recomendados
 
-#### **🆕 Ambiente de Desenvolvimento/Testes (Robusto)**
+#### **💻 Ambiente de Desenvolvimento/Testes**
 ```bash
 python main.py --modo completo --preservar-descompactados --anos 2020 2021 --max-tentativas-download 3
 ```
 
-#### **🆕 Ambiente de Produção (Máxima Robustez)**
+#### **🏭 Ambiente de Produção (Máxima Robustez)**
 ```bash
 # Verificação preventiva
 python main.py --verificar-7z
@@ -787,16 +820,16 @@ python main.py --modo consolidar-geral --incremental --remover-anos-pos-consolid
 python main.py --relatorio-problemas
 ```
 
-#### **🆕 Atualização Mensal (Automatizada)**
+#### **📅 Atualização Mensal (Automatizada)**
 ```bash
 # Pipeline completo automatizado
 python main.py --modo baixar --baixar-opcao faltantes --max-tentativas-download 5
 python main.py --modo completo --preservar-descompactados
 python main.py --modo consolidar-geral --incremental
-python main.py --relatorio-problemas
+# Consulte os logs na pasta 'logs/' para verificar se houve problemas
 ```
 
-## 🆕 Orientações Técnicas de Consolidação
+## 📋 Orientações Técnicas de Consolidação
 
 ### 📋 **Conformidade com Manual RAIS 2024**
 
@@ -861,4 +894,4 @@ RAIS_TODOS_ANOS_consolidado.parquet
 | **Consultas** | 10-100x mais rápidas | Formato colunar Parquet |
 | **Memória** | Lazy loading com Dask | Processa datasets maiores que RAM |
 | **Compatibilidade** | Pandas, Spark, R, SQL | Formato padrão analytics |
-| **🆕 Integridade** | Verificação automática | Detecção e correção de problemas |
+| **Integridade** | Verificação automática | Detecção e correção de problemas |

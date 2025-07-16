@@ -1729,10 +1729,25 @@ def converter_arquivo_worker(args):
         
         logger.debug(f"Ano extraído para {arquivo_txt.name}: {ano_arquivo} (arquivo antigo: {is_arquivo_antigo})")
         
-        # Obter tamanho do arquivo
+        # Obter tamanho do arquivo e configurar estratégia de performance
         tamanho_arquivo = arquivo_txt.stat().st_size
         tamanho_mb = tamanho_arquivo / (1024*1024)
-        logger.info(f"Iniciando conversão de {arquivo_txt.name} ({tamanho_mb:.1f}MB) - Ano: {ano_arquivo}")
+        
+        # OTIMIZAÇÃO BASEADA NO TAMANHO DO ARQUIVO (ajustado para arquivos RAIS)
+        if tamanho_mb < 500:  # Arquivos pequenos (< 500MB)
+            estrategia_performance = "RÁPIDA"
+            blocksize_otimizado = "32MB"
+            usar_otimizacoes_agressivas = True
+        elif tamanho_mb < 1500:  # Arquivos médios (500MB - 1.5GB)
+            estrategia_performance = "MÉDIA"
+            blocksize_otimizado = "64MB"
+            usar_otimizacoes_agressivas = True
+        else:  # Arquivos grandes (> 1.5GB)
+            estrategia_performance = "CONSERVADORA"
+            blocksize_otimizado = "128MB"
+            usar_otimizacoes_agressivas = False
+        
+        logger.info(f"Iniciando conversão de {arquivo_txt.name} ({tamanho_mb:.1f}MB) - Ano: {ano_arquivo} - Estratégia: {estrategia_performance}")
         
         inicio_conversao = time.time()
         
@@ -1770,7 +1785,7 @@ def converter_arquivo_worker(args):
                         sep=separador,
                         encoding='latin1',
                         dtype=str,  # Primeiro como string para limpeza
-                        blocksize="32MB" if is_arquivo_antigo else "64MB",  # Chunks menores para evitar recursão
+                        blocksize=blocksize_otimizado,  # Otimizado baseado no tamanho do arquivo
                         assume_missing=True,
                         on_bad_lines='skip',
                         na_filter=False,
@@ -1795,97 +1810,149 @@ def converter_arquivo_worker(args):
                     'NULL',    # Strings 'NULL'
                 ]
                 
-                # Aplicar limpeza robusta com tratamento de recursão e fallback
+                # OTIMIZAÇÃO DE PERFORMANCE: Estratégia adaptativa baseada no tamanho do arquivo
+                # Usar heurística baseada no tamanho em vez de análise custosa com .compute()
+                pbar.set_postfix_str("Determinando estratégia de limpeza...")
+                
+                # Estratégia baseada no tamanho do arquivo (mais eficiente que .compute())
+                if tamanho_mb < 500:
+                    # Arquivos pequenos: assumir poucos problemas
+                    percentual_problematicos = 0.5
+                    logger.info(f"Arquivo pequeno ({tamanho_mb:.1f}MB): assumindo poucos valores problemáticos")
+                elif tamanho_mb < 1500:
+                    # Arquivos médios: assumir problemas moderados
+                    percentual_problematicos = 3.0
+                    logger.info(f"Arquivo médio ({tamanho_mb:.1f}MB): assumindo problemas moderados")
+                else:
+                    # Arquivos grandes: assumir mais problemas
+                    percentual_problematicos = 8.0
+                    logger.info(f"Arquivo grande ({tamanho_mb:.1f}MB): assumindo muitos valores problemáticos")
+                
+                logger.info(f"Estratégia de limpeza para {arquivo_txt.name}: {percentual_problematicos:.1f}% valores problemáticos estimados")
+                
                 try:
-                    # MÉTODO 1: Limpeza otimizada para evitar recursão
-                    logger.debug(f"Aplicando limpeza otimizada em {arquivo_txt.name}")
-                    
-                    # Função para limpeza segura usando pandas (evita recursão do Dask)
-                    def limpar_coluna_pandas(serie_pandas, valores_problematicos):
-                        """
-                        Limpa uma série pandas de forma segura, evitando recursão.
-                        """
-                        import pandas as pd
+                    # ESTRATÉGIA ADAPTATIVA BASEADA NO PERCENTUAL E TAMANHO DO ARQUIVO
+                    if percentual_problematicos < 1.0:
+                        # ESTRATÉGIA RÁPIDA: Poucos valores problemáticos
+                        logger.info(f"Usando estratégia RÁPIDA para {arquivo_txt.name} (poucos valores problemáticos)")
                         
-                        # Converter para string se necessário
-                        if serie_pandas.dtype != 'object':
-                            serie_pandas = serie_pandas.astype(str)
-                        
-                        # Substituir valores problemáticos por None de uma vez
-                        serie_pandas = serie_pandas.replace(valores_problematicos, None)
-                        
-                        # Limpar espaços em branco
-                        serie_pandas = serie_pandas.str.strip()
-                        
-                        # Converter strings vazias para None
-                        serie_pandas = serie_pandas.replace(['', ' '], None)
-                        
-                        return serie_pandas
-                    
-                    # Aplicar limpeza coluna por coluna usando map_partitions (mais seguro)
-                    for coluna in df_string.columns:
-                        try:
-                            logger.debug(f"Limpando coluna {coluna} em {arquivo_txt.name}")
-                            
-                            # Usar map_partitions para aplicar limpeza em cada partição
-                            df_string[coluna] = df_string[coluna].map_partitions(
-                                limpar_coluna_pandas,
-                                valores_problematicos,
-                                meta=('x', 'object')
-                            )
-                            
-                        except RecursionError as re:
-                            logger.error(f"Erro de recursão na limpeza da coluna {coluna} em {arquivo_txt.name}: {str(re)}")
-                            registrar_erro_completo(ano, 'conversao', arquivo_txt.name, f"Recursão na limpeza da coluna {coluna}", re)
-                            
-                            # Fallback: tentar limpeza mais simples
+                        # Para arquivos pequenos, usar operações Dask diretas (mais rápido)
+                        if usar_otimizacoes_agressivas:
                             try:
-                                logger.info(f"Tentando limpeza simples para coluna {coluna}")
-                                # Apenas substituir valores mais problemáticos
-                                df_string[coluna] = df_string[coluna].replace(['{ñ', '{ñ c'], None)
-                            except Exception as fe:
-                                logger.warning(f"Fallback de limpeza falhou para coluna {coluna}: {str(fe)}")
-                                # Se falhar completamente, deixar a coluna como está
-                                continue
-                                
-                        except Exception as ce:
-                            logger.warning(f"Erro na limpeza da coluna {coluna} em {arquivo_txt.name}: {str(ce)}")
-                            # Registrar erro mas continuar com outras colunas
-                            registrar_erro_completo(ano, 'conversao', arquivo_txt.name, f"Erro na limpeza da coluna {coluna}", ce)
-                            continue
-                            
-                except RecursionError as re:
-                    logger.error(f"Erro de recursão geral na limpeza de {arquivo_txt.name}: {str(re)}")
-                    registrar_erro_completo(ano, 'conversao', arquivo_txt.name, "Recursão geral na limpeza", re)
+                                # Apenas substituir os valores mais críticos
+                                df_string = df_string.replace(['{ñ', '{ñ c'], None)
+                                logger.debug(f"Limpeza rápida direta aplicada com sucesso em {arquivo_txt.name}")
+                            except Exception as e:
+                                logger.warning(f"Limpeza rápida falhou, usando fallback: {str(e)}")
+                                # Fallback para map_partitions se necessário
+                                df_string = df_string.map_partitions(
+                                    lambda partition: partition.replace(['{ñ', '{ñ c'], None),
+                                    meta=df_string
+                                )
+                        else:
+                            # Para arquivos grandes, usar map_partitions desde o início
+                            df_string = df_string.map_partitions(
+                                lambda partition: partition.replace(['{ñ', '{ñ c'], None),
+                                meta=df_string
+                            )
                     
-                    # MÉTODO 2: Fallback sem limpeza detalhada
-                    logger.info(f"Aplicando fallback sem limpeza detalhada para {arquivo_txt.name}")
-                    try:
-                        # Apenas aplicar limpeza básica usando pandas diretamente
-                        def limpeza_basica_pandas(partition):
-                            """Limpeza básica usando pandas puro para evitar recursão"""
-                            import pandas as pd
-                            
-                            # Substituir apenas os valores mais problemáticos
+                    elif percentual_problematicos < 5.0:
+                        # ESTRATÉGIA MÉDIA: Valores problemáticos moderados
+                        logger.info(f"Usando estratégia MÉDIA para {arquivo_txt.name} (valores problemáticos moderados)")
+                        
+                        # Função otimizada para limpeza média
+                        def limpeza_media_pandas(partition):
+                            """Limpeza otimizada para casos médios"""
+                            # Apenas os valores mais problemáticos
                             partition = partition.replace(['{ñ', '{ñ c', '000-1'], None)
-                            
                             return partition
                         
-                        # Aplicar limpeza básica em todas as colunas de uma vez
-                        df_string = df_string.map_partitions(limpeza_basica_pandas, meta=df_string)
-                        logger.info(f"Limpeza básica aplicada com sucesso em {arquivo_txt.name}")
+                        df_string = df_string.map_partitions(limpeza_media_pandas, meta=df_string)
+                        logger.debug(f"Limpeza média aplicada com sucesso em {arquivo_txt.name}")
+                    
+                    else:
+                        # ESTRATÉGIA INTENSIVA: Muitos valores problemáticos
+                        logger.info(f"Usando estratégia INTENSIVA para {arquivo_txt.name} (muitos valores problemáticos)")
                         
+                        # Função para limpeza segura usando pandas (evita recursão do Dask)
+                        def limpar_coluna_pandas(serie_pandas, valores_problematicos):
+                            """
+                            Limpa uma série pandas de forma segura, evitando recursão.
+                            """
+                            import pandas as pd
+                            
+                            # Converter para string se necessário
+                            if serie_pandas.dtype != 'object':
+                                serie_pandas = serie_pandas.astype(str)
+                            
+                            # Substituir valores problemáticos por None de uma vez
+                            serie_pandas = serie_pandas.replace(valores_problematicos, None)
+                            
+                            # Limpar espaços em branco
+                            serie_pandas = serie_pandas.str.strip()
+                            
+                            # Converter strings vazias para None
+                            serie_pandas = serie_pandas.replace(['', ' '], None)
+                            
+                            return serie_pandas
+                        
+                        # Aplicar limpeza coluna por coluna usando map_partitions (mais seguro)
+                        for coluna in df_string.columns:
+                            try:
+                                logger.debug(f"Limpando coluna {coluna} em {arquivo_txt.name}")
+                                
+                                # Usar map_partitions para aplicar limpeza em cada partição
+                                df_string[coluna] = df_string[coluna].map_partitions(
+                                    limpar_coluna_pandas,
+                                    valores_problematicos,
+                                    meta=('x', 'object')
+                                )
+                                
+                            except RecursionError as re:
+                                logger.error(f"Erro de recursão na limpeza da coluna {coluna} em {arquivo_txt.name}: {str(re)}")
+                                registrar_erro_completo(ano, 'conversao', arquivo_txt.name, f"Recursão na limpeza da coluna {coluna}", re)
+                                
+                                # Fallback: tentar limpeza mais simples
+                                try:
+                                    logger.info(f"Tentando limpeza simples para coluna {coluna}")
+                                    # Apenas substituir valores mais problemáticos
+                                    df_string[coluna] = df_string[coluna].replace(['{ñ', '{ñ c'], None)
+                                except Exception as fe:
+                                    logger.warning(f"Fallback de limpeza falhou para coluna {coluna}: {str(fe)}")
+                                    # Se falhar completamente, deixar a coluna como está
+                                    continue
+                                    
+                            except Exception as ce:
+                                logger.warning(f"Erro na limpeza da coluna {coluna} em {arquivo_txt.name}: {str(ce)}")
+                                # Registrar erro mas continuar com outras colunas
+                                registrar_erro_completo(ano, 'conversao', arquivo_txt.name, f"Erro na limpeza da coluna {coluna}", ce)
+                                continue
+                    
+                    logger.info(f"Limpeza concluída para {arquivo_txt.name} usando estratégia baseada em {percentual_problematicos:.2f}% problemas")
+                    
+                except Exception as e_analise:
+                    logger.warning(f"Erro na análise de limpeza para {arquivo_txt.name}: {str(e_analise)}")
+                    # Fallback para estratégia média se análise falhar
+                    logger.info(f"Usando estratégia FALLBACK para {arquivo_txt.name}")
+                    
+                    def limpeza_fallback_pandas(partition):
+                        """Limpeza básica usando pandas puro para evitar recursão"""
+                        import pandas as pd
+                        
+                        # Substituir apenas os valores mais problemáticos
+                        partition = partition.replace(['{ñ', '{ñ c', '000-1'], None)
+                        
+                        return partition
+                    
+                    try:
+                        # Aplicar limpeza básica em todas as colunas de uma vez
+                        df_string = df_string.map_partitions(limpeza_fallback_pandas, meta=df_string)
+                        logger.info(f"Limpeza fallback aplicada com sucesso em {arquivo_txt.name}")
                     except Exception as fe:
-                        logger.warning(f"Fallback de limpeza básica falhou para {arquivo_txt.name}: {str(fe)}")
+                        logger.warning(f"Fallback de limpeza falhou para {arquivo_txt.name}: {str(fe)}")
                         # Se falhar, usar DataFrame original sem limpeza
                         logger.info(f"Usando DataFrame original sem limpeza para {arquivo_txt.name}")
                         pass
-                        
-                except Exception as ge:
-                    logger.error(f"Erro geral na limpeza de {arquivo_txt.name}: {str(ge)}")
-                    registrar_erro_completo(ano, 'conversao', arquivo_txt.name, "Erro geral na limpeza", ge)
-                    # Em caso de erro geral, continuar sem limpeza
-                    pass
                 
                 # ETAPA 3: Conversão inteligente de tipos com fallback para string
                 pbar.set_postfix_str("Convertendo tipos de dados...")
@@ -1905,9 +1972,7 @@ def converter_arquivo_worker(args):
                     'FAIXA_REMUN_DEZEM_SM', 'FAIXA_REMUN_MEDIA_SM', 'FAIXA_TEMPO_EMPREGO',
                     'TAMANHO_ESTABELECIMENTO', 'IND_PORTADOR_DEFIC', 'IND_CEI_VINCULADO',
                     'IND_SIMPLES', 'MOTIVO_DESLIGAMENTO', 'CAUSA_AFASTAMENTO_1',
-                    'CAUSA_AFASTAMENTO_2', 'CAUSA_AFASTAMENTO_3', 'BAIRROS_SP',
-                    'BAIRROS_FORTALEZA', 'BAIRROS_RJ', 'DISTRITOS_SP', 'REGIOES_ADM_DF',
-                    'fonte_arquivo', 'ANO_RAIS', 'estrategia_leitura'
+                    'CAUSA_AFASTAMENTO_2', 'CAUSA_AFASTAMENTO_3', 'ANO_RAIS'
                 }
                 
                 # Para arquivos antigos, ser mais conservador com tipos
@@ -1919,71 +1984,117 @@ def converter_arquivo_worker(args):
                 else:
                     # Para arquivos recentes, tentar otimizar tipos coluna por coluna
                     try:
-                        # Identificar colunas que podem ser numéricas
+                        # ETAPA 1: REMOVER COLUNAS DESNECESSÁRIAS ANTES DA CONVERSÃO
+                        logger.info(f"Removendo colunas desnecessárias de {arquivo_txt.name}")
+                        
+                        # Colunas que devem ser removidas (economizar processamento)
+                        colunas_para_remover = {
+                            'BAIRROS_SP', 'BAIRROS_FORTALEZA', 'BAIRROS_RJ', 
+                            'DISTRITOS_SP', 'REGIOES_ADM_DF'
+                        }
+                        
+                        # Verificar quais colunas existem no DataFrame
+                        colunas_existentes = set(df_string.columns)
+                        colunas_encontradas_para_remover = colunas_para_remover & colunas_existentes
+                        
+                        if colunas_encontradas_para_remover:
+                            # Remover colunas desnecessárias
+                            colunas_manter = [col for col in df_string.columns if col not in colunas_encontradas_para_remover]
+                            df_string = df_string[colunas_manter]
+                            logger.info(f"Removidas {len(colunas_encontradas_para_remover)} colunas desnecessárias: {colunas_encontradas_para_remover}")
+                        else:
+                            logger.debug(f"Nenhuma coluna desnecessária encontrada para remover em {arquivo_txt.name}")
+                        
+                        # ETAPA 2: ANÁLISE INTELIGENTE DE COLUNAS PARA CONVERSÃO (apenas das restantes)
+                        logger.info(f"Iniciando análise inteligente de colunas para {arquivo_txt.name}")
+                        
+                        # Análise de tipos baseada apenas nos nomes das colunas (sem .compute())
+                        logger.info(f"Usando análise de tipos otimizada (sem .compute()) para {arquivo_txt.name}")
+                        
+                        # Análise em lote para otimizar performance
+                        colunas_para_conversao = []
+                        colunas_descartadas = []
+                        
                         for coluna in df_string.columns:
                             nome_coluna_limpo = coluna.upper().replace(' ', '_')
                             
                             # Verificar se é uma coluna que deve ser mantida como string
                             if nome_coluna_limpo in colunas_sempre_string:
                                 colunas_mantidas_string.append(coluna)
+                                colunas_descartadas.append(coluna)
                                 logger.debug(f"Coluna {coluna} mantida como string: coluna identificada como código/texto")
                                 continue
                             
-                            try:
-                                # Função segura para conversão numérica usando pandas
-                                def converter_para_numerico_pandas(serie_pandas):
-                                    """
-                                    Converte série pandas para numérico de forma segura.
-                                    """
-                                    import pandas as pd
-                                    return pd.to_numeric(serie_pandas, errors='coerce')
+                            # Análise baseada no nome da coluna (sem .compute())
+                            # Colunas que geralmente são numéricas
+                            colunas_numericas_padrao = {
+                                'VL_REMUN_DEZEMBRO_SM', 'VL_REMUN_DEZEMBRO_NOMINAL', 'VL_REMUN_MEDIA_SM',
+                                'VL_REMUN_MEDIA_NOMINAL', 'QTDE_HORAS_CONTRATO', 'TEMPO_EMPREGO',
+                                'VL_ULTIMA_REMUNERACAO_ANO', 'VL_SALARIO_CONTRATO', 'IDADE',
+                                'DIA_ADMISSAO', 'MES_ADMISSAO', 'DIA_DESLIGAMENTO', 'MES_DESLIGAMENTO'
+                            }
+                            
+                            # Verificar se o nome da coluna indica que é numérica
+                            if (nome_coluna_limpo in colunas_numericas_padrao or 
+                                'VL_' in nome_coluna_limpo or 
+                                'VALOR' in nome_coluna_limpo or
+                                'QTDE' in nome_coluna_limpo or
+                                'QUANTIDADE' in nome_coluna_limpo or
+                                'IDADE' in nome_coluna_limpo or
+                                'DIA_' in nome_coluna_limpo or
+                                'MES_' in nome_coluna_limpo):
                                 
-                                # Verificar qualidade da conversão usando amostra primeiro
+                                # Marcar para conversão
+                                colunas_para_conversao.append((coluna, 0.1))  # Assumir 10% NaN
+                                logger.debug(f"Coluna {coluna} marcada para conversão: nome indica valor numérico")
+                            else:
+                                # Manter como string
+                                colunas_mantidas_string.append(coluna)
+                                colunas_descartadas.append(coluna)
+                                logger.debug(f"Coluna {coluna} mantida como string: nome indica texto/código")
+                        
+                        logger.info(f"Análise de colunas para {arquivo_txt.name}: {len(colunas_para_conversao)} para conversão, {len(colunas_descartadas)} mantidas como string")
+                        
+                        # CONVERSÃO OTIMIZADA: Processar colunas em lotes
+                        if colunas_para_conversao:
+                            logger.info(f"Iniciando conversão otimizada de {len(colunas_para_conversao)} colunas para {arquivo_txt.name}")
+                            
+                            # Função otimizada para conversão numérica
+                            def converter_para_numerico_otimizado(serie_pandas):
+                                """
+                                Converte série pandas para numérico de forma otimizada.
+                                """
+                                import pandas as pd
+                                return pd.to_numeric(serie_pandas, errors='coerce')
+                            
+                            # Processar conversões
+                            for coluna, percentual_nan in colunas_para_conversao:
                                 try:
-                                    # Usar amostra para verificar qualidade da conversão
-                                    amostra = df_string[coluna].head(1000).compute()
-                                    import pandas as pd
-                                    amostra_convertida = pd.to_numeric(amostra, errors='coerce')
+                                    # Aplicar conversão usando map_partitions para evitar recursão
+                                    coluna_convertida = df_string[coluna].map_partitions(
+                                        converter_para_numerico_otimizado,
+                                        meta=('x', 'float64')
+                                    )
+                                    df_otimizado[coluna] = coluna_convertida
+                                    colunas_convertidas.append(coluna)
+                                    logger.debug(f"Coluna {coluna} convertida para numérico (esperado {percentual_nan:.1%} NaN)")
                                     
-                                    total_amostra = len(amostra)
-                                    null_amostra = np.sum(pd.isna(amostra_convertida))
-                                    
-                                    # Se mais de 30% dos valores da amostra viraram NaN, manter como string
-                                    if null_amostra / total_amostra > 0.3:
-                                        logger.debug(f"Coluna {coluna} mantida como string: {null_amostra}/{total_amostra} valores da amostra seriam NaN")
-                                        colunas_mantidas_string.append(coluna)
-                                    else:
-                                        # Aplicar conversão usando map_partitions para evitar recursão
-                                        try:
-                                            coluna_convertida = df_string[coluna].map_partitions(
-                                                converter_para_numerico_pandas,
-                                                meta=('x', 'float64')
-                                            )
-                                            df_otimizado[coluna] = coluna_convertida
-                                            colunas_convertidas.append(coluna)
-                                            logger.debug(f"Coluna {coluna} convertida para numérico")
-                                        except RecursionError as re:
-                                            logger.warning(f"Erro de recursão na conversão da coluna {coluna}: {str(re)}")
-                                            registrar_erro_completo(ano, 'conversao', arquivo_txt.name, f"Recursão na conversão da coluna {coluna}", re)
-                                            colunas_mantidas_string.append(coluna)
-                                        except Exception as ec:
-                                            logger.warning(f"Erro na conversão da coluna {coluna}: {str(ec)}")
-                                            colunas_mantidas_string.append(coluna)
-                                        
-                                except Exception as e_stat:
-                                    # Se não conseguir calcular estatísticas, manter como string
-                                    logger.debug(f"Coluna {coluna} mantida como string: erro ao calcular estatísticas - {str(e_stat)}")
+                                except RecursionError as re:
+                                    logger.warning(f"Erro de recursão na conversão da coluna {coluna}: {str(re)}")
+                                    registrar_erro_completo(ano, 'conversao', arquivo_txt.name, f"Recursão na conversão da coluna {coluna}", re)
                                     colunas_mantidas_string.append(coluna)
                                     
-                            except RecursionError as re:
-                                # Capturar recursão específica na conversão
-                                logger.error(f"Erro de recursão na conversão da coluna {coluna} em {arquivo_txt.name}: {str(re)}")
-                                registrar_erro_completo(ano, 'conversao', arquivo_txt.name, f"Recursão na conversão da coluna {coluna}", re)
-                                colunas_mantidas_string.append(coluna)
-                            except Exception as e:
-                                # Se falhar completamente, manter como string
-                                logger.debug(f"Coluna {coluna} mantida como string: erro na conversão - {str(e)}")
-                                colunas_mantidas_string.append(coluna)
+                                except Exception as ec:
+                                    logger.warning(f"Erro na conversão da coluna {coluna}: {str(ec)}")
+                                    colunas_mantidas_string.append(coluna)
+                        
+                        else:
+                            logger.info(f"Nenhuma coluna marcada para conversão em {arquivo_txt.name}")
+                        
+                        # Copiar colunas que permaneceram como string
+                        for coluna in colunas_descartadas:
+                            if coluna not in colunas_mantidas_string:  # Evitar duplicatas
+                                df_otimizado[coluna] = df_string[coluna]
                         
                         df = df_otimizado
                         estrategia_usada = f"otimizada_{len(colunas_convertidas)}num_{len(colunas_mantidas_string)}str"
@@ -2047,10 +2158,8 @@ def converter_arquivo_worker(args):
             pbar.set_postfix_str("Processando colunas...")
             df = df.rename(columns=mapeamento_colunas)
             
-            # Adicionar colunas de metadados
-            df['fonte_arquivo'] = arquivo_txt.stem
+            # Adicionar coluna de metadados
             df['ANO_RAIS'] = ano_arquivo
-            df['estrategia_leitura'] = estrategia_usada  # Para debugging
             
             # Reparticionar se especificado
             if npartitions:
@@ -2070,13 +2179,13 @@ def converter_arquivo_worker(args):
             pbar.set_postfix_str("Concluído!")
         
         # Obter informações finais
-        num_colunas = len(colunas_limpas) + 3  # +3 para fonte_arquivo, ANO_RAIS e estrategia_leitura
+        num_colunas = len(colunas_limpas) + 1  # +1 para ANO_RAIS
         tamanho_parquet = arquivo_parquet.stat().st_size / (1024*1024) if arquivo_parquet.exists() else 0
         tempo_conversao = time.time() - inicio_conversao
         
         logger.info(f"Conversão concluída: {arquivo_txt.name} → {arquivo_parquet.name} ({num_colunas} colunas, {tamanho_parquet:.1f}MB em {tempo_conversao:.1f}s) - Ano: {ano_arquivo} - Estratégia: {estrategia_usada}")
         
-        return f"✅ {arquivo_txt.name} → Parquet ({num_colunas} colunas, {tamanho_parquet:.1f}MB) - Ano: {ano_arquivo} - {estrategia_usada}"
+        return f"✅ {arquivo_txt.name} → Parquet ({num_colunas} colunas, {tamanho_parquet:.1f}MB) - Ano: {ano_arquivo}"
         
     except Exception as e:
         # Capturar informações detalhadas do erro
@@ -2135,9 +2244,7 @@ def converter_arquivo_worker(args):
                 df_emergencia = df_emergencia.rename(columns=mapeamento_colunas)
                 
                 # Adicionar metadados
-                df_emergencia['fonte_arquivo'] = arquivo_txt.stem
                 df_emergencia['ANO_RAIS'] = ano_arquivo
-                df_emergencia['estrategia_leitura'] = "emergencia_recursao"
                 
                 # Salvar
                 df_emergencia.to_parquet(
@@ -2148,7 +2255,7 @@ def converter_arquivo_worker(args):
                 )
                 
                 tamanho_parquet = arquivo_parquet.stat().st_size / (1024*1024) if arquivo_parquet.exists() else 0
-                num_colunas = len(colunas_limpas) + 3
+                num_colunas = len(colunas_limpas) + 1
                 
                 logger.info(f"Estratégia de emergência bem-sucedida para {arquivo_txt.name}")
                 return f"🔄 {arquivo_txt.name} → Parquet ({num_colunas} colunas, {tamanho_parquet:.1f}MB) - EMERGÊNCIA RECURSÃO"
@@ -2357,10 +2464,15 @@ def consolidar_parquets(anos=None, sobrescrever=False, preservar_arquivos=False,
     """
     Consolida todos os arquivos Parquet de um ano em um único arquivo Parquet.
     
+    NOVO COMPORTAMENTO PADRÃO (OTIMIZADO):
+    - Por padrão, REMOVE arquivos Parquet individuais (AL20XX.parquet, AC20XX.parquet, etc.)
+    - Mantém apenas o arquivo consolidado (RAIS_20XX_consolidado)
+    - Economiza espaço em disco significativamente
+    
     Parâmetros:
     - anos: Lista de anos para processar (ex: [2015, 2016]). Se None, processa todos.
     - sobrescrever: Se True, sobrescreve arquivos Parquet consolidados existentes.
-    - preservar_arquivos: Se True, mantém os arquivos intermediários (TXT e Parquet individuais).
+    - preservar_arquivos: Se True, mantém TODOS os arquivos intermediários (TXT e Parquet individuais).
     - preservar_descompactados: Se True, preserva apenas arquivos TXT, removendo Parquets intermediários.
     
     Retorna:
@@ -2443,10 +2555,6 @@ def consolidar_parquets(anos=None, sobrescrever=False, preservar_arquivos=False,
                         tqdm.write(msg)
                         logger.debug(msg)
                     
-                    # Adicionar coluna com o nome do arquivo para identificação (se não existir)
-                    if 'fonte_arquivo' not in df.columns:
-                        df['fonte_arquivo'] = dir_parquet.stem
-                    
                     # Adicionar coluna do ano se não existir
                     if 'ANO_RAIS' not in df.columns:
                         df['ANO_RAIS'] = ano
@@ -2494,7 +2602,7 @@ def consolidar_parquets(anos=None, sobrescrever=False, preservar_arquivos=False,
             print(f"  ✅ Arquivo consolidado criado: {tamanho_final:.2f} GB")
             arquivos_consolidados.append(arquivo_consolidado)
             
-            # Gerenciar arquivos intermediários baseado nos novos parâmetros
+            # Gerenciar arquivos intermediários baseado nos parâmetros
             if preservar_arquivos:
                 # Preservar tudo
                 print(f"  🔒 Preservando todos os arquivos intermediários")
@@ -2508,8 +2616,8 @@ def consolidar_parquets(anos=None, sobrescrever=False, preservar_arquivos=False,
                     except Exception as e:
                         print(f"    ❌ Erro ao remover {dir_parquet}: {str(e)}")
             else:
-                # Comportamento padrão: remover TXT e Parquets intermediários
-                print(f"  🗑️ Removendo arquivos intermediários...")
+                # NOVO COMPORTAMENTO PADRÃO: sempre remover parquets individuais após consolidação
+                print(f"  🗑️ Removendo arquivos intermediários (novo padrão otimizado)...")
                 diretorio_txt = Path('dados-abertos') / ano
                 if diretorio_txt.exists():
                     arquivos_txt = list(diretorio_txt.glob('*.txt'))
@@ -2529,12 +2637,17 @@ def consolidar_parquets(anos=None, sobrescrever=False, preservar_arquivos=False,
                     except Exception as e:
                         print(f"    ❌ Erro ao remover pasta {diretorio_txt}: {str(e)}")
                 
-                # Remover diretórios Parquet individuais
+                # SEMPRE remover diretórios Parquet individuais (AL20XX.parquet, etc.) por padrão
+                parquets_removidos = 0
                 for dir_parquet in diretorios_parquet:
                     try:
                         shutil.rmtree(dir_parquet)
+                        parquets_removidos += 1
+                        print(f"    ✅ Removido: {dir_parquet.name}")
                     except Exception as e:
                         print(f"    ❌ Erro ao remover {dir_parquet}: {str(e)}")
+                
+                print(f"  💾 Espaço otimizado: {parquets_removidos} arquivos Parquet individuais removidos")
             
         except Exception as e:
             print(f"  ❌ Erro ao consolidar arquivos do ano {ano}: {str(e)}")
@@ -2550,6 +2663,10 @@ def consolidar_geral(sobrescrever=False, incremental=False, remover_anos_individ
     """
     Consolida todos os arquivos consolidados de todos os anos em uma única pasta.
     
+    COMPORTAMENTO OTIMIZADO:
+    - Lê APENAS arquivos RAIS_20XX_consolidado (ignora AL20XX.parquet, AC20XX.parquet, etc.)
+    - Assume que arquivos individuais já foram removidos durante consolidação por ano
+    
     ORIENTAÇÕES TÉCNICAS BASEADAS NA ESTRUTURA OFICIAL DA RAIS:
     
     ✅ CONSOLIDAÇÃO APROVADA - Justificativas técnicas:
@@ -2563,7 +2680,6 @@ def consolidar_geral(sobrescrever=False, incremental=False, remover_anos_individ
        
     3. RASTREABILIDADE: Adição automática de metadados:
        - ANO_RAIS: Identificação temporal única
-       - fonte_arquivo: Origem geográfica (estado) de cada registro
        
     4. INTEGRIDADE DOS DADOS: Preservação completa da informação original
        com enriquecimento de metadados para análises temporais
@@ -2628,7 +2744,7 @@ def consolidar_geral(sobrescrever=False, incremental=False, remover_anos_individ
                 print(f"   ⏭️ Pulando ano {ano_dir.name} (já consolidado)")
                 continue
                 
-            # Procurar arquivo consolidado nesta pasta
+            # Procurar APENAS arquivos consolidados (ignora AL20XX.parquet, AC20XX.parquet, etc.)
             arquivo_consolidado = ano_dir / f"RAIS_{ano_dir.name}_consolidado"
             arquivo_consolidado_unico = ano_dir / f"RAIS_{ano_dir.name}_consolidado.parquet"
             
@@ -2652,7 +2768,7 @@ def consolidar_geral(sobrescrever=False, incremental=False, remover_anos_individ
     if incremental:
         print(f"\n📊 Consolidação Incremental - Adicionando {len(arquivos_consolidados)} anos novos:")
     else:
-        print(f"\n📊 Consolidação Geral - Unindo {len(arquivos_consolidados)} anos:")
+        print(f"\n📊 Consolidação Geral - Unindo {len(arquivos_consolidados)} anos (apenas arquivos consolidados):")
     
     for ano, caminho in arquivos_consolidados:
         print(f"  📅 {ano}: {caminho.name}")
@@ -3496,13 +3612,31 @@ def processar_arquivo_pipeline(arquivo_info):
             resultado['erro'] = f"Nenhum arquivo TXT encontrado após descompactação de {nome_arquivo}"
             return resultado
         
-        # Marcar arquivos TXT como prontos para conversão posterior
-        # A conversão será feita em batch após todos os arquivos serem descompactados
-        arquivos_parquet_gerados = arquivos_txt  # Usar arquivos TXT como base
+        # Conversão imediata após descompactação (pipeline real)
+        arquivos_parquet_gerados = []
+        
+        for arquivo_txt in arquivos_txt:
+            try:
+                # Converter imediatamente cada arquivo TXT para Parquet
+                logger.debug(f"Pipeline {ano}/{nome_arquivo}: Convertendo {arquivo_txt.name}")
+                
+                # Usar a função de conversão individual
+                resultado_conversao = converter_arquivo_worker((arquivo_txt, pasta_parquet, sobrescrever, None, ano))
+                
+                if "✅" in resultado_conversao:
+                    arquivo_parquet = pasta_parquet / f"{arquivo_txt.stem}.parquet"
+                    arquivos_parquet_gerados.append(arquivo_parquet)
+                    logger.debug(f"Pipeline {ano}/{nome_arquivo}: Conversão de {arquivo_txt.name} concluída")
+                else:
+                    logger.warning(f"Pipeline {ano}/{nome_arquivo}: Falha na conversão de {arquivo_txt.name}: {resultado_conversao}")
+                    
+            except Exception as e:
+                logger.error(f"Pipeline {ano}/{nome_arquivo}: Erro na conversão de {arquivo_txt.name}: {str(e)}")
+                continue
         
         if not arquivos_parquet_gerados:
             resultado['etapa_falha'] = 'conversao'
-            resultado['erro'] = f"Nenhum arquivo TXT encontrado para conversão"
+            resultado['erro'] = f"Nenhum arquivo foi convertido com sucesso"
             return resultado
         
         resultado['sucesso'] = True
@@ -3589,7 +3723,7 @@ def processar_ano_pipeline_assincrono(ano, sobrescrever=False, max_arquivos=None
         arquivos_processados = []
         arquivos_falhados = []
         
-        with ThreadPoolExecutor(max_workers=max_workers_pipeline) as executor:
+        with ProcessPoolExecutor(max_workers=max_workers_pipeline) as executor:
             # Submeter todos os arquivos para processamento em pipeline
             future_to_arquivo = {
                 executor.submit(processar_arquivo_pipeline, arquivo_info): arquivo_info[1]
@@ -3597,7 +3731,7 @@ def processar_ano_pipeline_assincrono(ano, sobrescrever=False, max_arquivos=None
             }
             
             # Processar resultados conforme completam
-            with tqdm(total=len(arquivos_pipeline), desc=f"🔄 Pipeline {ano} (Download+Descompactar)", unit="arquivo") as pbar:
+            with tqdm(total=len(arquivos_pipeline), desc=f"🔄 Pipeline {ano} (Download→Descompactar→Converter)", unit="arquivo") as pbar:
                 for future in as_completed(future_to_arquivo):
                     nome_arquivo = future_to_arquivo[future]
                     try:
@@ -3605,7 +3739,7 @@ def processar_ano_pipeline_assincrono(ano, sobrescrever=False, max_arquivos=None
                         
                         if resultado['sucesso']:
                             arquivos_processados.append(resultado)
-                            msg = f"✅ {nome_arquivo}: Download+Descompactação concluídos"
+                            msg = f"✅ {nome_arquivo}: Pipeline completo (Download→Descompactar→Converter)"
                             tqdm.write(msg)
                             logger.debug(msg)
                         else:
@@ -3643,27 +3777,23 @@ def processar_ano_pipeline_assincrono(ano, sobrescrever=False, max_arquivos=None
             logger.error(f"Nenhum arquivo foi processado com sucesso para o ano {ano}")
             return False, None, {'ano': ano}
         
-        # ETAPA 3: CONVERSÃO EM BATCH (após todos os downloads/descompactações)
-        print(f"\n🔄 ETAPA 3: Conversão TXT para Parquet do ano {ano}")
-        iniciar_tempo(f"Conversão {ano}")
+        # ETAPA 3: CONVERSÃO JÁ CONCLUÍDA NO PIPELINE
+        print(f"\n✅ ETAPA 3: Conversão TXT para Parquet concluída durante o pipeline")
+        print(f"  📊 Arquivos convertidos: {len(arquivos_processados)} de {len(arquivos_processados) + len(arquivos_falhados)}")
         
-        # Usar função de conversão existente com controle de erros aprimorado
-        anos_convertidos = converter_para_parquet(anos=[ano], sobrescrever=sobrescrever, 
-                                                 max_arquivos=max_arquivos, npartitions=npartitions,
-                                                 max_workers=max_workers_pipeline, anos_validos=[ano])
+        # Não precisa mais da conversão em batch - já foi feita no pipeline
         
-        finalizar_tempo(f"Conversão {ano}")
-        
-        # Verificar se houve erros na conversão
-        if controlador_erros.ano_tem_erros(ano):
-            print(f"❌ Ano {ano} teve erros na conversão. Verificando se há arquivos suficientes...")
-            # Continuar se pelo menos alguns arquivos foram convertidos
+        # Verificar se houve erros na conversão durante o pipeline
+        if len(arquivos_falhados) > 0:
+            print(f"⚠️ Ano {ano} teve {len(arquivos_falhados)} arquivos com falhas durante o pipeline")
+            
+            # Verificar se há arquivos suficientes para continuar
             arquivos_parquet_existentes = list(pasta_parquet.glob('*.parquet'))
             if not arquivos_parquet_existentes:
                 print(f"❌ Nenhum arquivo Parquet gerado para o ano {ano}")
                 return False, None, {'ano': ano}
             else:
-                print(f"⚠️ Continuando com {len(arquivos_parquet_existentes)} arquivos Parquet gerados")
+                print(f"✅ Continuando com {len(arquivos_parquet_existentes)} arquivos Parquet gerados")
         
         # ETAPA 4: CONSOLIDAÇÃO
         print(f"\n📊 ETAPA 4: Consolidação dos arquivos Parquet do ano {ano}")
@@ -3755,19 +3885,18 @@ def processar_sequencial_pipeline_otimizado(anos=None, sobrescrever=False, max_a
                                            pausar=0, npartitions=None, preservar_arquivos=False, 
                                            preservar_descompactados=False, max_workers_pipeline=4):
     """
-    Processa anos usando pipeline assíncrono otimizado: um ano por vez, mas com pipeline interno.
+    Processa anos usando pipeline assíncrono paralelo: múltiplos anos simultâneos.
     
-    FLUXO PIPELINE POR ANO:
-    - Para cada arquivo do ano: download → descompactar → converter (em pipeline)
-    - Quando todos terminam: consolidar
-    - Limpeza
-    - Próximo ano
+    FLUXO PIPELINE PARALELO:
+    - Múltiplos anos processados simultaneamente
+    - Cada ano: download → descompactar → converter → consolidar → limpeza
+    - Threads nunca ficam ociosas (sempre processando diferentes anos)
     
-    VANTAGENS SOBRE O FLUXO ANTERIOR:
-    - Não espera todos os downloads terminarem
-    - Processamento em streaming por arquivo
-    - Máximo aproveitamento de recursos I/O + CPU
-    - Menor uso de espaço temporário
+    VANTAGENS SOBRE O FLUXO SEQUENCIAL:
+    - Threads nunca ficam ociosas durante consolidação/limpeza
+    - Máximo aproveitamento de recursos (CPU + I/O)
+    - Processamento verdadeiramente paralelo
+    - Menor tempo total de execução
     """
     logger = logging.getLogger(__name__)
     logger.info("🚀 Iniciando processamento sequencial com pipeline assíncrono")
@@ -3802,32 +3931,55 @@ def processar_sequencial_pipeline_otimizado(anos=None, sobrescrever=False, max_a
         'tempo_total_pipeline': 0.0
     }
     
-    # Processar cada ano sequencialmente com pipeline interno
-    for i, ano in enumerate(anos_para_processar, 1):
-        print(f"\n{'='*60}")
-        print(f"📅 PROCESSANDO ANO {ano} ({i}/{len(anos_para_processar)}) - PIPELINE")
-        print(f"{'='*60}")
-        
-        try:
-            sucesso, arquivo_consolidado, estatisticas = processar_ano_pipeline_assincrono(
+    # Processar múltiplos anos em paralelo (máximo aproveitamento de recursos)
+    print(f"\n🚀 PROCESSAMENTO PARALELO DE ANOS: {len(anos_para_processar)} anos simultâneos")
+    print(f"⚡ Cada ano roda seu próprio pipeline interno")
+    print(f"💡 Threads nunca ficam ociosas - sempre processando diferentes anos")
+    
+    # Usar ThreadPoolExecutor para processar anos em paralelo
+    with ThreadPoolExecutor(max_workers=min(4, len(anos_para_processar))) as executor:
+        # Submeter todos os anos para processamento paralelo
+        future_to_ano = {
+            executor.submit(
+                processar_ano_pipeline_assincrono,
                 ano, sobrescrever, max_arquivos, pausar, npartitions,
                 preservar_arquivos, preservar_descompactados, max_workers_pipeline
-            )
-            
-            if sucesso and arquivo_consolidado:
-                arquivos_consolidados.append(arquivo_consolidado)
-                estatisticas_totais['anos_processados'] += 1
-                estatisticas_totais['total_arquivos_processados'] += estatisticas.get('arquivos_processados', 0)
-                estatisticas_totais['espaco_total_economizado_gb'] += estatisticas.get('espaco_economizado_gb', 0.0)
-                estatisticas_totais['tempo_total_pipeline'] += estatisticas.get('tempo_total', 0.0)
-            else:
-                estatisticas_totais['anos_falhados'] += 1
-                
-        except Exception as e:
-            logger.error(f"Erro durante processamento pipeline do ano {ano}: {str(e)}")
-            print(f"❌ Erro durante processamento pipeline do ano {ano}: {str(e)}")
-            estatisticas_totais['anos_falhados'] += 1
-            continue
+            ): ano for ano in anos_para_processar
+        }
+        
+        # Processar resultados conforme completam
+        with tqdm(total=len(anos_para_processar), desc="📅 Processando anos", unit="ano") as pbar:
+            for future in as_completed(future_to_ano):
+                ano = future_to_ano[future]
+                try:
+                    sucesso, arquivo_consolidado, estatisticas = future.result()
+                    
+                    if sucesso and arquivo_consolidado:
+                        arquivos_consolidados.append(arquivo_consolidado)
+                        estatisticas_totais['anos_processados'] += 1
+                        estatisticas_totais['total_arquivos_processados'] += estatisticas.get('arquivos_processados', 0)
+                        estatisticas_totais['espaco_total_economizado_gb'] += estatisticas.get('espaco_economizado_gb', 0.0)
+                        estatisticas_totais['tempo_total_pipeline'] += estatisticas.get('tempo_total', 0.0)
+                        
+                        msg = f"✅ Ano {ano} processado com sucesso"
+                        tqdm.write(msg)
+                        logger.info(msg)
+                    else:
+                        estatisticas_totais['anos_falhados'] += 1
+                        msg = f"❌ Falha no processamento do ano {ano}"
+                        tqdm.write(msg)
+                        logger.error(msg)
+                    
+                    pbar.set_postfix_str(f"✅{estatisticas_totais['anos_processados']} ❌{estatisticas_totais['anos_falhados']}")
+                    pbar.update(1)
+                    
+                except Exception as e:
+                    estatisticas_totais['anos_falhados'] += 1
+                    erro_msg = f"❌ Erro inesperado no ano {ano}: {str(e)}"
+                    tqdm.write(erro_msg)
+                    logger.error(f"Erro inesperado no ano {ano}: {str(e)}")
+                    pbar.set_postfix_str(f"✅{estatisticas_totais['anos_processados']} ❌{estatisticas_totais['anos_falhados']}")
+                    pbar.update(1)
     
     # Resumo final
     tempo_total = finalizar_tempo("Processamento Sequencial Pipeline")
