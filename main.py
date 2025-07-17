@@ -113,8 +113,8 @@ Exemplos de uso:
     parser.add_argument(
         "--max-workers",
         type=int,
-        default=4,
-        help="Número máximo de workers para download paralelo (padrão: 4)"
+        default=None,
+        help="Número máximo de workers para processamento paralelo (padrão: detectado automaticamente)"
     )
     
     parser.add_argument(
@@ -184,8 +184,8 @@ Exemplos de uso:
     parser.add_argument(
         "--chunk-size",
         type=int,
-        default=100000,
-        help="Tamanho do chunk para conversão Parquet (padrão: 100000 linhas)"
+        default=None,
+        help="Tamanho do chunk para conversão Parquet (padrão: baseado no tamanho do arquivo)"
     )
     
     return parser

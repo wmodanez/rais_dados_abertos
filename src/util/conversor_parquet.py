@@ -6,21 +6,31 @@ from typing import Optional, List, Dict, Any
 import polars as pl
 from tqdm import tqdm
 import threading
+from concurrent.futures import ThreadPoolExecutor, as_completed
+import multiprocessing
 
 # Configuração de logging
 logger = logging.getLogger("conversor_parquet")
 
 class ConversorParquet:
-    def __init__(self, chunk_size: int = 100000, max_workers: int = 4):
+    def __init__(self, chunk_size: Optional[int] = None, max_workers: Optional[int] = None):
         """
         Inicializa o conversor de arquivos TXT para Parquet.
         
         Args:
-            chunk_size: Número de linhas por chunk para processamento
-            max_workers: Número máximo de workers para processamento paralelo
+            chunk_size: Número de linhas por chunk para processamento.
+                      Se None, será calculado automaticamente para cada arquivo.
+            max_workers: Número máximo de workers para processamento paralelo.
+                       Se None, será detectado automaticamente.
         """
-        self.chunk_size = chunk_size
-        self.max_workers = max_workers
+        # Detectar número de workers automaticamente se não especificado
+        if max_workers is None:
+            self.max_workers = self._detectar_workers_otimos()
+        else:
+            self.max_workers = max_workers
+        
+        # Chunk size será calculado dinamicamente se não especificado
+        self.chunk_size_fixo = chunk_size
         
         # Criar diretório parquet se não existir
         Path("parquet").mkdir(exist_ok=True)
@@ -28,7 +38,65 @@ class ConversorParquet:
         # Lock para operações de criação de diretórios
         self._dir_lock = threading.Lock()
         
-        logger.info(f"Conversor configurado - Chunk size: {chunk_size}, Max workers: {max_workers}")
+        if chunk_size is None:
+            logger.info(f"Conversor configurado - Chunk size: automático, Max workers: {self.max_workers}")
+        else:
+            logger.info(f"Conversor configurado - Chunk size: {chunk_size}, Max workers: {self.max_workers}")
+    
+    def _detectar_workers_otimos(self) -> int:
+        """
+        Detecta o número ótimo de workers baseado no hardware disponível.
+        
+        Returns:
+            Número de workers recomendado
+        """
+        # Obter número de CPUs físicos e lógicos
+        cpus_fisicos = multiprocessing.cpu_count()
+        cpus_logicos = os.cpu_count()
+        
+        # Estratégia: usar 75% dos cores lógicos, mas não menos que 2 nem mais que 16
+        workers_sugeridos = max(2, min(16, int(cpus_logicos * 0.75)))
+        
+        # Log das informações de detecção
+        logger.info(f"Detecção automática de workers:")
+        logger.info(f"  CPUs físicos: {cpus_fisicos}")
+        logger.info(f"  CPUs lógicos: {cpus_logicos}")
+        logger.info(f"  Workers sugeridos: {workers_sugeridos}")
+        
+        # Verificar se há limitações de memória (opcional)
+        try:
+            import psutil
+            memoria_gb = psutil.virtual_memory().total / (1024**3)
+            if memoria_gb < 8:  # Se menos de 8GB RAM
+                workers_sugeridos = max(2, min(workers_sugeridos, 4))
+                logger.info(f"  Memória limitada ({memoria_gb:.1f}GB), reduzindo workers para: {workers_sugeridos}")
+        except ImportError:
+            logger.debug("psutil não disponível, usando detecção padrão de workers")
+        
+        return workers_sugeridos
+    
+    def _obter_chunk_size_padrao(self, tamanho_arquivo_bytes: int) -> int:
+        """
+        Retorna o tamanho padrão de chunk baseado no tamanho do arquivo.
+        Usa valores fixos otimizados para arquivos temporários.
+        
+        Args:
+            tamanho_arquivo_bytes: Tamanho do arquivo em bytes
+            
+        Returns:
+            Tamanho padrão de chunk em linhas
+        """
+        tamanho_arquivo_gb = tamanho_arquivo_bytes / (1024**3)
+        
+        # Valores fixos otimizados para arquivos temporários
+        if tamanho_arquivo_gb < 1:
+            return 50000      # Arquivos pequenos
+        elif tamanho_arquivo_gb < 5:
+            return 100000     # Arquivos médios
+        elif tamanho_arquivo_gb < 10:
+            return 200000     # Arquivos grandes
+        else:
+            return 500000     # Arquivos muito grandes
     
     def _extrair_ano_arquivo(self, nome_arquivo: str) -> Optional[str]:
         """
@@ -238,12 +306,52 @@ class ConversorParquet:
                 logger.error(f"Não foi possível criar schema para {caminho_arquivo_txt}")
                 return False
             
-            # Calcular número de chunks
-            num_chunks = (total_linhas + self.chunk_size - 1) // self.chunk_size
+            # Obter chunk size (fixo ou calculado)
+            if self.chunk_size_fixo is None:
+                chunk_size = self._obter_chunk_size_padrao(caminho_arquivo_txt.stat().st_size)
+                logger.info(f"Chunk size calculado: {chunk_size:,} linhas")
+            else:
+                chunk_size = self.chunk_size_fixo
+                logger.info(f"Chunk size fixo: {chunk_size:,} linhas")
             
-            logger.info(f"Processando {total_linhas} linhas em {num_chunks} chunks")
+            # Calcular número de chunks
+            num_chunks = (total_linhas + chunk_size - 1) // chunk_size
+            
+            logger.info(f"Processando {total_linhas} linhas em {num_chunks} chunks com {self.max_workers} workers")
             
             chunks_processados = 0
+            
+            # Função para processar um chunk individual
+            def processar_chunk(chunk_idx: int) -> bool:
+                offset = chunk_idx * chunk_size
+                
+                try:
+                    # Ler chunk
+                    df_chunk = pl.read_csv(
+                        caminho_arquivo_txt,
+                        separator=separador,
+                        skip_rows=offset + 1,  # +1 para pular cabeçalho
+                        n_rows=chunk_size,
+                        encoding=encoding,
+                        ignore_errors=True,
+                        schema=schema
+                    )
+                    
+                    if df_chunk.height == 0:
+                        logger.debug(f"Chunk {chunk_idx} vazio, pulando...")
+                        return False
+                    
+                    # Salvar chunk como arquivo separado
+                    nome_chunk = f"{nome_arquivo}_part{chunk_idx:04d}.parquet"
+                    caminho_chunk = diretorio_destino / nome_chunk
+                    
+                    df_chunk.write_parquet(str(caminho_chunk), compression="snappy")
+                    logger.debug(f"Chunk {chunk_idx + 1} salvo: {caminho_chunk} ({df_chunk.height} linhas)")
+                    return True
+                    
+                except Exception as e:
+                    logger.error(f"Erro ao processar chunk {chunk_idx} de {caminho_arquivo_txt}: {e}")
+                    return False
             
             # Barra de progresso
             with tqdm(
@@ -254,41 +362,25 @@ class ConversorParquet:
                 leave=True
             ) as pbar:
                 
-                # Processar em chunks
-                for chunk_idx in range(num_chunks):
-                    offset = chunk_idx * self.chunk_size
+                # Processar chunks em paralelo
+                with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
+                    # Submeter todos os chunks para processamento
+                    future_to_chunk = {
+                        executor.submit(processar_chunk, chunk_idx): chunk_idx 
+                        for chunk_idx in range(num_chunks)
+                    }
                     
-                    try:
-                        # Ler chunk
-                        df_chunk = pl.read_csv(
-                            caminho_arquivo_txt,
-                            separator=separador,
-                            skip_rows=offset + 1,  # +1 para pular cabeçalho
-                            n_rows=self.chunk_size,
-                            encoding=encoding,
-                            ignore_errors=True,
-                            schema=schema
-                        )
-                        
-                        if df_chunk.height == 0:
-                            logger.debug(f"Chunk {chunk_idx} vazio, pulando...")
+                    # Processar resultados conforme completam
+                    for future in as_completed(future_to_chunk):
+                        chunk_idx = future_to_chunk[future]
+                        try:
+                            sucesso = future.result()
+                            if sucesso:
+                                chunks_processados += 1
                             pbar.update(1)
-                            continue
-                        
-                        # Salvar chunk como arquivo separado
-                        nome_chunk = f"{nome_arquivo}_part{chunk_idx:04d}.parquet"
-                        caminho_chunk = diretorio_destino / nome_chunk
-                        
-                        df_chunk.write_parquet(str(caminho_chunk), compression="snappy")
-                        chunks_processados += 1
-                        
-                        logger.debug(f"Chunk {chunk_idx + 1} salvo: {caminho_chunk} ({df_chunk.height} linhas)")
-                        pbar.update(1)
-                        
-                    except Exception as e:
-                        logger.error(f"Erro ao processar chunk {chunk_idx} de {caminho_arquivo_txt}: {e}")
-                        pbar.update(1)
-                        continue
+                        except Exception as e:
+                            logger.error(f"Exceção no chunk {chunk_idx}: {e}")
+                            pbar.update(1)
             
             # Verificar se pelo menos um chunk foi processado
             if chunks_processados > 0:
@@ -364,4 +456,193 @@ class ConversorParquet:
         }
         
         logger.info(f"Conversão concluída: {convertidos} convertidos, {falhas} falhas")
-        return resultado 
+        
+        # Consolidar arquivos se houve conversões bem-sucedidas
+        if convertidos > 0 and ano:
+            logger.info("Iniciando consolidação dos arquivos...")
+            self.consolidar_arquivos_ano(ano)
+            # Limpar arquivos chunk antigos na raiz
+            self.limpar_chunks_antigos(ano)
+        
+        return resultado
+
+    def limpar_chunks_antigos(self, ano: int) -> None:
+        """
+        Remove arquivos antigos do tipo *_chunk_part*.parquet da raiz de parquet/ANO/.
+        """
+        diretorio_ano = Path("parquet") / str(ano)
+        if not diretorio_ano.exists():
+            return
+        arquivos_antigos = list(diretorio_ano.glob("*_chunk_part*.parquet"))
+        if arquivos_antigos:
+            logger.info(f"Removendo {len(arquivos_antigos)} arquivos chunk antigos em {diretorio_ano}")
+            for arquivo in arquivos_antigos:
+                try:
+                    arquivo.unlink()
+                except Exception as e:
+                    logger.error(f"Erro ao remover arquivo antigo {arquivo}: {e}")
+        else:
+            logger.info(f"Nenhum arquivo chunk antigo encontrado em {diretorio_ano}")
+    
+    def consolidar_arquivos_ano(self, ano: int) -> None:
+        """
+        Consolida todos os chunks de cada arquivo em um único arquivo Parquet.
+        Remove as subpastas após a consolidação.
+        
+        Args:
+            ano: Ano dos arquivos a serem consolidados
+        """
+        diretorio_ano = Path("parquet") / str(ano)
+        if not diretorio_ano.exists():
+            logger.warning(f"Diretório do ano {ano} não encontrado: {diretorio_ano}")
+            return
+        
+        logger.info(f"Consolidando arquivos do ano {ano}")
+        
+        # Encontrar todas as subpastas (cada uma representa um arquivo)
+        subpastas = [d for d in diretorio_ano.iterdir() if d.is_dir()]
+        
+        if not subpastas:
+            logger.info(f"Nenhuma subpasta encontrada em {diretorio_ano}")
+            return
+        
+        logger.info(f"Encontradas {len(subpastas)} subpastas para consolidar")
+        
+        consolidados = 0
+        falhas = 0
+        
+        # Barra de progresso para consolidação
+        with tqdm(
+            total=len(subpastas),
+            desc="Consolidando arquivos",
+            unit="arquivo",
+            position=0,
+            leave=True
+        ) as pbar:
+            
+            # Consolidar arquivos em paralelo
+            with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
+                # Submeter todas as consolidações
+                future_to_subpasta = {
+                    executor.submit(self.consolidar_arquivo, subpasta, diretorio_ano): subpasta 
+                    for subpasta in subpastas
+                }
+                
+                # Processar resultados conforme completam
+                for future in as_completed(future_to_subpasta):
+                    subpasta = future_to_subpasta[future]
+                    try:
+                        sucesso = future.result()
+                        if sucesso:
+                            consolidados += 1
+                        else:
+                            falhas += 1
+                    except Exception as e:
+                        logger.error(f"Erro ao consolidar {subpasta}: {e}")
+                        falhas += 1
+                    
+                    pbar.update(1)
+        
+        logger.info(f"Consolidação concluída: {consolidados} consolidados, {falhas} falhas")
+    
+    def consolidar_arquivo(self, subpasta: Path, diretorio_ano: Path) -> bool:
+        """
+        Consolida todos os chunks de um arquivo em um único arquivo Parquet.
+        Remove a subpasta após a consolidação.
+        
+        Args:
+            subpasta: Caminho da subpasta com os chunks
+            diretorio_ano: Diretório do ano (pasta pai)
+            
+        Returns:
+            True se a consolidação foi bem-sucedida, False caso contrário
+        """
+        nome_arquivo = subpasta.name
+        
+        # Encontrar todos os chunks da subpasta
+        chunks = sorted(subpasta.glob("*.parquet"))
+        
+        if not chunks:
+            logger.warning(f"Nenhum chunk encontrado em {subpasta}")
+            return False
+        
+        logger.info(f"Consolidando {len(chunks)} chunks de {nome_arquivo}")
+        
+        try:
+            # Função para ler um chunk individual
+            def ler_chunk(chunk: Path) -> Optional[pl.DataFrame]:
+                try:
+                    # Verificar se o arquivo tem tamanho mínimo (12 bytes para header + footer)
+                    if chunk.stat().st_size < 12:
+                        logger.warning(f"Chunk {chunk} muito pequeno, pulando...")
+                        return None
+                    
+                    df = pl.read_parquet(chunk)
+                    if df.height > 0:  # Só retornar se tiver dados
+                        return df
+                    return None
+                except Exception as e:
+                    logger.error(f"Erro ao ler chunk {chunk}: {e}")
+                    return None
+            
+            # Ler chunks em paralelo
+            dataframes = []
+            
+            with tqdm(
+                total=len(chunks),
+                desc=f"Lendo chunks de {nome_arquivo}",
+                unit="chunk",
+                position=1,
+                leave=False
+            ) as pbar_chunks:
+                
+                with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
+                    # Submeter todos os chunks para leitura
+                    future_to_chunk = {
+                        executor.submit(ler_chunk, chunk): chunk 
+                        for chunk in chunks
+                    }
+                    
+                    # Processar resultados conforme completam
+                    for future in as_completed(future_to_chunk):
+                        chunk = future_to_chunk[future]
+                        try:
+                            df = future.result()
+                            if df is not None:
+                                dataframes.append(df)
+                            pbar_chunks.update(1)
+                        except Exception as e:
+                            logger.error(f"Exceção ao ler chunk {chunk}: {e}")
+                            pbar_chunks.update(1)
+            
+            if not dataframes:
+                logger.error(f"Nenhum chunk foi lido com sucesso para {nome_arquivo}")
+                return False
+            
+            # Concatenar todos os dataframes
+            logger.info(f"Concatenando {len(dataframes)} dataframes de {nome_arquivo}")
+            df_consolidado = pl.concat(dataframes)
+            
+            # Salvar arquivo consolidado
+            arquivo_consolidado = diretorio_ano / f"{nome_arquivo}.parquet"
+            logger.info(f"Salvando arquivo consolidado: {arquivo_consolidado}")
+            df_consolidado.write_parquet(str(arquivo_consolidado), compression="snappy")
+            
+            # Verificar se o arquivo foi criado
+            if arquivo_consolidado.exists():
+                tamanho_mb = arquivo_consolidado.stat().st_size / (1024 * 1024)
+                logger.info(f"Arquivo consolidado criado: {arquivo_consolidado} ({tamanho_mb:.2f} MB, {df_consolidado.height} linhas)")
+                
+                # Remover subpasta com os chunks
+                logger.info(f"Removendo subpasta: {subpasta}")
+                import shutil
+                shutil.rmtree(subpasta)
+                
+                return True
+            else:
+                logger.error(f"Arquivo consolidado não foi criado: {arquivo_consolidado}")
+                return False
+                
+        except Exception as e:
+            logger.error(f"Erro na consolidação de {nome_arquivo}: {e}")
+            return False 
