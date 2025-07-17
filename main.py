@@ -1,29 +1,18 @@
-import os
 import py7zr
 import shutil
 from pathlib import Path
-import argparse
 from tqdm import tqdm
 import time
-import dask.dataframe as dd
+import polars as pl
 
-import pyarrow as pa
-import pyarrow.parquet as pq
-import numpy as np
 import re
 import unicodedata
 import ftplib
-import requests
 from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor, as_completed
-from urllib.parse import urljoin
 import threading
 import psutil
 import logging
 from datetime import datetime
-import json
-import asyncio
-import concurrent.futures
-import queue
 import threading
 
 # ==========================================
@@ -826,9 +815,9 @@ def calcular_workers_otimizados():
     elif memoria_gb < 16:
         workers_convert = 2
     elif memoria_gb < 32:
-        workers_convert = max(2, min(4, cpu_physical))
+        workers_convert = 1  # Reduzido para evitar sobrecarga de memória
     else:
-        workers_convert = max(2, min(6, cpu_physical))
+        workers_convert = 1  # Reduzido para evitar sobrecarga de memória
     
     logger.info(f"Workers otimizados calculados:")
     logger.info(f"  - Download: {workers_download} (I/O intensivo)")
@@ -1710,7 +1699,6 @@ def converter_arquivo_worker(args):
             return f"⏭️  Pulando {arquivo_txt.name} - já existe no destino"
         
         # Extrair ano do nome do arquivo
-        # Procura por padrão de 4 dígitos que representam o ano no nome do arquivo
         import re
         nome_arquivo = arquivo_txt.stem
         
@@ -1736,15 +1724,12 @@ def converter_arquivo_worker(args):
         # OTIMIZAÇÃO BASEADA NO TAMANHO DO ARQUIVO (ajustado para arquivos RAIS)
         if tamanho_mb < 500:  # Arquivos pequenos (< 500MB)
             estrategia_performance = "RÁPIDA"
-            blocksize_otimizado = "32MB"
             usar_otimizacoes_agressivas = True
         elif tamanho_mb < 1500:  # Arquivos médios (500MB - 1.5GB)
             estrategia_performance = "MÉDIA"
-            blocksize_otimizado = "64MB"
             usar_otimizacoes_agressivas = True
         else:  # Arquivos grandes (> 1.5GB)
             estrategia_performance = "CONSERVADORA"
-            blocksize_otimizado = "128MB"
             usar_otimizacoes_agressivas = False
         
         logger.info(f"Iniciando conversão de {arquivo_txt.name} ({tamanho_mb:.1f}MB) - Ano: {ano_arquivo} - Estratégia: {estrategia_performance}")
@@ -1763,40 +1748,14 @@ def converter_arquivo_worker(args):
             pbar.update(10)
             
             # ESTRATÉGIA INTELIGENTE: LIMPAR VALORES PROBLEMÁTICOS E USAR TIPOS NATIVOS
-            # Primeiro carrega como string, limpa valores problemáticos, depois converte para tipos apropriados
             df = None
             estrategia_usada = "desconhecida"
             
-            # ETAPA 1: Carregar como string para poder limpar valores problemáticos
-            pbar.set_postfix_str("Carregando como string para limpeza...")
-            logger.info(f"Carregando {arquivo_txt.name} como string para limpeza de valores problemáticos")
+            # ETAPA 1: Carregar
+            pbar.set_postfix_str("Carregando...")
+            logger.info(f"Carregando {arquivo_txt.name}")
             
             try:
-                # Configurar Dask para evitar problemas de recursão
-                import dask.config
-                with dask.config.set({
-                    'dataframe.query-planning': False,  # Desabilitar query planning que pode causar recursão
-                    'array.slicing.split_large_chunks': False,  # Evitar divisão automática de chunks
-                    'optimization.fuse': {},  # Reduzir fusão de operações
-                    'dataframe.shuffle.method': 'tasks'  # Usar método de shuffle mais simples
-                }):
-                    df_string = dd.read_csv(
-                        arquivo_txt,
-                        sep=separador,
-                        encoding='latin1',
-                        dtype=str,  # Primeiro como string para limpeza
-                        blocksize=blocksize_otimizado,  # Otimizado baseado no tamanho do arquivo
-                        assume_missing=True,
-                        on_bad_lines='skip',
-                        na_filter=False,
-                        keep_default_na=False,
-                        na_values=[]
-                    )
-                
-                # ETAPA 2: Limpar valores problemáticos
-                pbar.set_postfix_str("Limpando valores problemáticos...")
-                logger.info(f"Limpando valores problemáticos em {arquivo_txt.name}")
-                
                 # Definir padrões de valores problemáticos para converter em NULL
                 valores_problematicos = [
                     '{ñ',      # Caractere problemático comum em arquivos antigos
@@ -1810,158 +1769,140 @@ def converter_arquivo_worker(args):
                     'NULL',    # Strings 'NULL'
                 ]
                 
-                # OTIMIZAÇÃO DE PERFORMANCE: Estratégia adaptativa baseada no tamanho do arquivo
-                # Usar heurística baseada no tamanho em vez de análise custosa com .compute()
-                pbar.set_postfix_str("Determinando estratégia de limpeza...")
-                
-                # Estratégia baseada no tamanho do arquivo (mais eficiente que .compute())
-                if tamanho_mb < 500:
-                    # Arquivos pequenos: assumir poucos problemas
-                    percentual_problematicos = 0.5
-                    logger.info(f"Arquivo pequeno ({tamanho_mb:.1f}MB): assumindo poucos valores problemáticos")
-                elif tamanho_mb < 1500:
-                    # Arquivos médios: assumir problemas moderados
-                    percentual_problematicos = 3.0
-                    logger.info(f"Arquivo médio ({tamanho_mb:.1f}MB): assumindo problemas moderados")
-                else:
-                    # Arquivos grandes: assumir mais problemas
-                    percentual_problematicos = 8.0
-                    logger.info(f"Arquivo grande ({tamanho_mb:.1f}MB): assumindo muitos valores problemáticos")
-                
-                logger.info(f"Estratégia de limpeza para {arquivo_txt.name}: {percentual_problematicos:.1f}% valores problemáticos estimados")
-                
-                try:
-                    # ESTRATÉGIA ADAPTATIVA BASEADA NO PERCENTUAL E TAMANHO DO ARQUIVO
-                    if percentual_problematicos < 1.0:
-                        # ESTRATÉGIA RÁPIDA: Poucos valores problemáticos
-                        logger.info(f"Usando estratégia RÁPIDA para {arquivo_txt.name} (poucos valores problemáticos)")
-                        
-                        # Para arquivos pequenos, usar operações Dask diretas (mais rápido)
-                        if usar_otimizacoes_agressivas:
-                            try:
-                                # Apenas substituir os valores mais críticos
-                                df_string = df_string.replace(['{ñ', '{ñ c'], None)
-                                logger.debug(f"Limpeza rápida direta aplicada com sucesso em {arquivo_txt.name}")
-                            except Exception as e:
-                                logger.warning(f"Limpeza rápida falhou, usando fallback: {str(e)}")
-                                # Fallback para map_partitions se necessário
-                                df_string = df_string.map_partitions(
-                                    lambda partition: partition.replace(['{ñ', '{ñ c'], None),
-                                    meta=df_string
-                                )
-                        else:
-                            # Para arquivos grandes, usar map_partitions desde o início
-                            df_string = df_string.map_partitions(
-                                lambda partition: partition.replace(['{ñ', '{ñ c'], None),
-                                meta=df_string
-                            )
+                # ESTRATÉGIA ADAPTATIVA: Usar chunks para arquivos grandes
+                if tamanho_mb > 200:  # Arquivos grandes: usar chunks (reduzido de 500MB para 200MB)
+                    logger.info(f"Arquivo grande ({tamanho_mb:.1f}MB): usando estratégia de chunks")
                     
-                    elif percentual_problematicos < 5.0:
-                        # ESTRATÉGIA MÉDIA: Valores problemáticos moderados
-                        logger.info(f"Usando estratégia MÉDIA para {arquivo_txt.name} (valores problemáticos moderados)")
-                        
-                        # Função otimizada para limpeza média
-                        def limpeza_media_pandas(partition):
-                            """Limpeza otimizada para casos médios"""
-                            # Apenas os valores mais problemáticos
-                            partition = partition.replace(['{ñ', '{ñ c', '000-1'], None)
-                            return partition
-                        
-                        df_string = df_string.map_partitions(limpeza_media_pandas, meta=df_string)
-                        logger.debug(f"Limpeza média aplicada com sucesso em {arquivo_txt.name}")
-                    
+                    # Determinar tamanho do chunk baseado no tamanho do arquivo
+                    if tamanho_mb < 1000:
+                        chunk_size = 5000  # Reduzido drasticamente
+                    elif tamanho_mb < 2000:
+                        chunk_size = 3000  # Reduzido drasticamente
                     else:
-                        # ESTRATÉGIA INTENSIVA: Muitos valores problemáticos
-                        logger.info(f"Usando estratégia INTENSIVA para {arquivo_txt.name} (muitos valores problemáticos)")
+                        chunk_size = 1000  # Reduzido drasticamente para arquivos gigantes
+                    
+                    chunks = []
+                    total_chunks = 0
+                    
+                    # Ler arquivo em chunks
+                    with open(arquivo_txt, 'r', encoding='latin1', errors='ignore') as f:
+                        header = f.readline().strip()
+                        chunk_lines = []
                         
-                        # Função para limpeza segura usando pandas (evita recursão do Dask)
-                        def limpar_coluna_pandas(serie_pandas, valores_problematicos):
-                            """
-                            Limpa uma série pandas de forma segura, evitando recursão.
-                            """
-                            import pandas as pd
-                            
-                            # Converter para string se necessário
-                            if serie_pandas.dtype != 'object':
-                                serie_pandas = serie_pandas.astype(str)
-                            
-                            # Substituir valores problemáticos por None de uma vez
-                            serie_pandas = serie_pandas.replace(valores_problematicos, None)
-                            
-                            # Limpar espaços em branco
-                            serie_pandas = serie_pandas.str.strip()
-                            
-                            # Converter strings vazias para None
-                            serie_pandas = serie_pandas.replace(['', ' '], None)
-                            
-                            return serie_pandas
-                        
-                        # Aplicar limpeza coluna por coluna usando map_partitions (mais seguro)
-                        for coluna in df_string.columns:
-                            try:
-                                logger.debug(f"Limpando coluna {coluna} em {arquivo_txt.name}")
-                                
-                                # Usar map_partitions para aplicar limpeza em cada partição
-                                df_string[coluna] = df_string[coluna].map_partitions(
-                                    limpar_coluna_pandas,
-                                    valores_problematicos,
-                                    meta=('x', 'object')
-                                )
-                                
-                            except RecursionError as re:
-                                logger.error(f"Erro de recursão na limpeza da coluna {coluna} em {arquivo_txt.name}: {str(re)}")
-                                registrar_erro_completo(ano, 'conversao', arquivo_txt.name, f"Recursão na limpeza da coluna {coluna}", re)
-                                
-                                # Fallback: tentar limpeza mais simples
+                        for line in f:
+                            chunk_lines.append(line)
+                            if len(chunk_lines) >= chunk_size:
+                                # Processar chunk
+                                chunk_text = header + '\n' + ''.join(chunk_lines)
                                 try:
-                                    logger.info(f"Tentando limpeza simples para coluna {coluna}")
-                                    # Apenas substituir valores mais problemáticos
-                                    df_string[coluna] = df_string[coluna].replace(['{ñ', '{ñ c'], None)
-                                except Exception as fe:
-                                    logger.warning(f"Fallback de limpeza falhou para coluna {coluna}: {str(fe)}")
-                                    # Se falhar completamente, deixar a coluna como está
-                                    continue
+                                    chunk_df = pl.read_csv(
+                                        chunk_text.encode('latin1'),
+                                        separator=separador,
+                                        encoding='latin1',
+                                        null_values=valores_problematicos,
+                                        ignore_errors=True,
+                                        truncate_ragged_lines=True
+                                    )
+                                    chunks.append(chunk_df)
+                                    total_chunks += 1
+                                    pbar.set_postfix_str(f"Chunk {total_chunks} processado")
                                     
-                            except Exception as ce:
-                                logger.warning(f"Erro na limpeza da coluna {coluna} em {arquivo_txt.name}: {str(ce)}")
-                                # Registrar erro mas continuar com outras colunas
-                                registrar_erro_completo(ano, 'conversao', arquivo_txt.name, f"Erro na limpeza da coluna {coluna}", ce)
-                                continue
-                    
-                    logger.info(f"Limpeza concluída para {arquivo_txt.name} usando estratégia baseada em {percentual_problematicos:.2f}% problemas")
-                    
-                except Exception as e_analise:
-                    logger.warning(f"Erro na análise de limpeza para {arquivo_txt.name}: {str(e_analise)}")
-                    # Fallback para estratégia média se análise falhar
-                    logger.info(f"Usando estratégia FALLBACK para {arquivo_txt.name}")
-                    
-                    def limpeza_fallback_pandas(partition):
-                        """Limpeza básica usando pandas puro para evitar recursão"""
-                        import pandas as pd
+                                    # Liberar memória a cada 10 chunks
+                                    if total_chunks % 10 == 0:
+                                        import gc
+                                        gc.collect()
+                                except Exception as e_chunk:
+                                    logger.warning(f"Erro no chunk {total_chunks + 1}: {str(e_chunk)}")
+                                    # Tentar com configuração mais permissiva
+                                    try:
+                                        chunk_df = pl.read_csv(
+                                            chunk_text.encode('latin1'),
+                                            separator=separador,
+                                            encoding='latin1',
+                                            ignore_errors=True,
+                                            truncate_ragged_lines=True
+                                        )
+                                        chunks.append(chunk_df)
+                                        total_chunks += 1
+                                    except Exception:
+                                        # Pular chunk problemático
+                                        pass
+                                
+                                chunk_lines = []
                         
-                        # Substituir apenas os valores mais problemáticos
-                        partition = partition.replace(['{ñ', '{ñ c', '000-1'], None)
-                        
-                        return partition
+                        # Processar último chunk se houver
+                        if chunk_lines:
+                            chunk_text = header + '\n' + ''.join(chunk_lines)
+                            try:
+                                chunk_df = pl.read_csv(
+                                    chunk_text.encode('latin1'),
+                                    separator=separador,
+                                    encoding='latin1',
+                                    null_values=valores_problematicos,
+                                    ignore_errors=True,
+                                    truncate_ragged_lines=True
+                                )
+                                chunks.append(chunk_df)
+                                total_chunks += 1
+                            except Exception:
+                                # Tentar com configuração permissiva
+                                try:
+                                    chunk_df = pl.read_csv(
+                                        chunk_text.encode('latin1'),
+                                        separator=separador,
+                                        encoding='latin1',
+                                        ignore_errors=True,
+                                        truncate_ragged_lines=True
+                                    )
+                                    chunks.append(chunk_df)
+                                    total_chunks += 1
+                                except Exception:
+                                    pass
                     
-                    try:
-                        # Aplicar limpeza básica em todas as colunas de uma vez
-                        df_string = df_string.map_partitions(limpeza_fallback_pandas, meta=df_string)
-                        logger.info(f"Limpeza fallback aplicada com sucesso em {arquivo_txt.name}")
-                    except Exception as fe:
-                        logger.warning(f"Fallback de limpeza falhou para {arquivo_txt.name}: {str(fe)}")
-                        # Se falhar, usar DataFrame original sem limpeza
-                        logger.info(f"Usando DataFrame original sem limpeza para {arquivo_txt.name}")
-                        pass
+                    # Concatenar chunks
+                    if chunks:
+                        df = pl.concat(chunks)
+                        logger.info(f"Carregamento em chunks bem-sucedido: {len(chunks)} chunks, {len(df)} linhas")
+                    else:
+                        raise Exception("Nenhum chunk foi processado com sucesso")
                 
-                # ETAPA 3: Conversão inteligente de tipos com fallback para string
+                else:  # Arquivos pequenos/médios: carregamento direto
+                    logger.info(f"Arquivo pequeno/médio ({tamanho_mb:.1f}MB): usando carregamento direto")
+                    df = pl.read_csv(
+                        arquivo_txt,
+                        separator=separador,
+                        encoding='latin1',
+                        null_values=valores_problematicos,
+                        ignore_errors=True,
+                        truncate_ragged_lines=True
+                    )
+                
+                logger.info(f"Carregamento inicial bem-sucedido: {df.shape[0]} linhas, {df.shape[1]} colunas")
+                logger.debug(f"Colunas carregadas: {list(df.columns)}")
+                pbar.update(20)
+                
+                # ETAPA 2: Limpar valores problemáticos
+                pbar.set_postfix_str("Limpando valores problemáticos...")
+                logger.info(f"Limpando valores problemáticos em {arquivo_txt.name}")
+                
+                # Limpar espaços em branco em todas as colunas (convertendo tudo para string primeiro)
+                logger.debug(f"Convertendo todas as colunas para string para evitar problemas de tipo")
+                df = df.cast({col: pl.Utf8 for col in df.columns})
+                
+                colunas_string = 0
+                for col in df.columns:
+                    df = df.with_columns(
+                        pl.col(col).str.strip_chars().replace(['', ' '], None)
+                    )
+                    colunas_string += 1
+                logger.debug(f"Limpeza aplicada em {colunas_string} colunas")
+                
+                logger.info(f"Limpeza concluída para {arquivo_txt.name}")
+                pbar.update(20)
+                
+                # ETAPA 3: Conversão inteligente de tipos
                 pbar.set_postfix_str("Convertendo tipos de dados...")
                 logger.info(f"Convertendo tipos de dados para {arquivo_txt.name}")
-                
-                # NOVA ESTRATÉGIA: Converter coluna por coluna, mantendo string para problemáticas
-                df_otimizado = df_string.copy()
-                colunas_convertidas = []
-                colunas_mantidas_string = []
                 
                 # Colunas que sabemos que devem ser mantidas como string (códigos, identificadores, etc.)
                 colunas_sempre_string = {
@@ -1977,8 +1918,7 @@ def converter_arquivo_worker(args):
                 
                 # Para arquivos antigos, ser mais conservador com tipos
                 if is_arquivo_antigo:
-                    # Manter como object para maior compatibilidade
-                    df = df_string
+                    # Manter como string para maior compatibilidade
                     estrategia_usada = "conservadora_string"
                     logger.info(f"Arquivo antigo {arquivo_txt.name}: mantendo todas as colunas como string")
                 else:
@@ -1994,38 +1934,34 @@ def converter_arquivo_worker(args):
                         }
                         
                         # Verificar quais colunas existem no DataFrame
-                        colunas_existentes = set(df_string.columns)
+                        colunas_existentes = set(df.columns)
                         colunas_encontradas_para_remover = colunas_para_remover & colunas_existentes
                         
                         if colunas_encontradas_para_remover:
                             # Remover colunas desnecessárias
-                            colunas_manter = [col for col in df_string.columns if col not in colunas_encontradas_para_remover]
-                            df_string = df_string[colunas_manter]
+                            colunas_manter = [col for col in df.columns if col not in colunas_encontradas_para_remover]
+                            df = df.select(colunas_manter)
                             logger.info(f"Removidas {len(colunas_encontradas_para_remover)} colunas desnecessárias: {colunas_encontradas_para_remover}")
                         else:
                             logger.debug(f"Nenhuma coluna desnecessária encontrada para remover em {arquivo_txt.name}")
                         
-                        # ETAPA 2: ANÁLISE INTELIGENTE DE COLUNAS PARA CONVERSÃO (apenas das restantes)
+                        # ETAPA 2: ANÁLISE INTELIGENTE DE COLUNAS PARA CONVERSÃO
                         logger.info(f"Iniciando análise inteligente de colunas para {arquivo_txt.name}")
-                        
-                        # Análise de tipos baseada apenas nos nomes das colunas (sem .compute())
-                        logger.info(f"Usando análise de tipos otimizada (sem .compute()) para {arquivo_txt.name}")
                         
                         # Análise em lote para otimizar performance
                         colunas_para_conversao = []
-                        colunas_descartadas = []
+                        colunas_mantidas_string = []
                         
-                        for coluna in df_string.columns:
+                        for coluna in df.columns:
                             nome_coluna_limpo = coluna.upper().replace(' ', '_')
                             
                             # Verificar se é uma coluna que deve ser mantida como string
                             if nome_coluna_limpo in colunas_sempre_string:
                                 colunas_mantidas_string.append(coluna)
-                                colunas_descartadas.append(coluna)
                                 logger.debug(f"Coluna {coluna} mantida como string: coluna identificada como código/texto")
                                 continue
                             
-                            # Análise baseada no nome da coluna (sem .compute())
+                            # Análise baseada no nome da coluna
                             # Colunas que geralmente são numéricas
                             colunas_numericas_padrao = {
                                 'VL_REMUN_DEZEMBRO_SM', 'VL_REMUN_DEZEMBRO_NOMINAL', 'VL_REMUN_MEDIA_SM',
@@ -2045,71 +1981,49 @@ def converter_arquivo_worker(args):
                                 'MES_' in nome_coluna_limpo):
                                 
                                 # Marcar para conversão
-                                colunas_para_conversao.append((coluna, 0.1))  # Assumir 10% NaN
+                                colunas_para_conversao.append(coluna)
                                 logger.debug(f"Coluna {coluna} marcada para conversão: nome indica valor numérico")
                             else:
                                 # Manter como string
                                 colunas_mantidas_string.append(coluna)
-                                colunas_descartadas.append(coluna)
                                 logger.debug(f"Coluna {coluna} mantida como string: nome indica texto/código")
                         
-                        logger.info(f"Análise de colunas para {arquivo_txt.name}: {len(colunas_para_conversao)} para conversão, {len(colunas_descartadas)} mantidas como string")
+                        logger.info(f"Análise de colunas para {arquivo_txt.name}: {len(colunas_para_conversao)} para conversão, {len(colunas_mantidas_string)} mantidas como string")
                         
                         # CONVERSÃO OTIMIZADA: Processar colunas em lotes
                         if colunas_para_conversao:
                             logger.info(f"Iniciando conversão otimizada de {len(colunas_para_conversao)} colunas para {arquivo_txt.name}")
                             
-                            # Função otimizada para conversão numérica
-                            def converter_para_numerico_otimizado(serie_pandas):
-                                """
-                                Converte série pandas para numérico de forma otimizada.
-                                """
-                                import pandas as pd
-                                return pd.to_numeric(serie_pandas, errors='coerce')
+                            # Preparar expressões de conversão
+                            expressoes_conversao = []
                             
-                            # Processar conversões
-                            for coluna, percentual_nan in colunas_para_conversao:
+                            for coluna in colunas_para_conversao:
                                 try:
-                                    # Aplicar conversão usando map_partitions para evitar recursão
-                                    coluna_convertida = df_string[coluna].map_partitions(
-                                        converter_para_numerico_otimizado,
-                                        meta=('x', 'float64')
+                                    # Tentar converter para numérico
+                                    expressoes_conversao.append(
+                                        pl.col(coluna).cast(pl.Float64, strict=False).alias(coluna)
                                     )
-                                    df_otimizado[coluna] = coluna_convertida
-                                    colunas_convertidas.append(coluna)
-                                    logger.debug(f"Coluna {coluna} convertida para numérico (esperado {percentual_nan:.1%} NaN)")
-                                    
-                                except RecursionError as re:
-                                    logger.warning(f"Erro de recursão na conversão da coluna {coluna}: {str(re)}")
-                                    registrar_erro_completo(ano, 'conversao', arquivo_txt.name, f"Recursão na conversão da coluna {coluna}", re)
-                                    colunas_mantidas_string.append(coluna)
-                                    
+                                    logger.debug(f"Coluna {coluna} preparada para conversão numérica")
                                 except Exception as ec:
-                                    logger.warning(f"Erro na conversão da coluna {coluna}: {str(ec)}")
+                                    logger.warning(f"Erro na preparação da conversão da coluna {coluna}: {str(ec)}")
                                     colunas_mantidas_string.append(coluna)
+                            
+                            # Aplicar conversões
+                            if expressoes_conversao:
+                                try:
+                                    df = df.with_columns(expressoes_conversao)
+                                    logger.info(f"Conversão de tipos aplicada com sucesso para {len(expressoes_conversao)} colunas")
+                                except Exception as e:
+                                    logger.warning(f"Erro na conversão em lote: {str(e)}")
+                                    # Fallback: manter como string
+                                    estrategia_usada = "fallback_string_completo"
                         
-                        else:
-                            logger.info(f"Nenhuma coluna marcada para conversão em {arquivo_txt.name}")
-                        
-                        # Copiar colunas que permaneceram como string
-                        for coluna in colunas_descartadas:
-                            if coluna not in colunas_mantidas_string:  # Evitar duplicatas
-                                df_otimizado[coluna] = df_string[coluna]
-                        
-                        df = df_otimizado
-                        estrategia_usada = f"otimizada_{len(colunas_convertidas)}num_{len(colunas_mantidas_string)}str"
-                        logger.info(f"Conversão de tipos para {arquivo_txt.name}: {len(colunas_convertidas)} colunas numéricas, {len(colunas_mantidas_string)} mantidas como string")
-                        
-                        # Log das colunas convertidas para DEBUG
-                        if colunas_convertidas:
-                            logger.debug(f"Colunas convertidas para numérico em {arquivo_txt.name}: {colunas_convertidas}")
-                        if colunas_mantidas_string:
-                            logger.debug(f"Colunas mantidas como string em {arquivo_txt.name}: {colunas_mantidas_string}")
+                        estrategia_usada = f"otimizada_{len(colunas_para_conversao)}num_{len(colunas_mantidas_string)}str"
+                        logger.info(f"Conversão de tipos para {arquivo_txt.name}: {len(colunas_para_conversao)} colunas numéricas, {len(colunas_mantidas_string)} mantidas como string")
                         
                     except Exception as e:
                         logger.warning(f"Otimização de tipos falhou para {arquivo_txt.name}: {str(e)}")
                         logger.info(f"Usando fallback: todas as colunas como string para {arquivo_txt.name}")
-                        df = df_string
                         estrategia_usada = "fallback_string_completo"
                 
                 logger.info(f"Sucesso na limpeza e otimização para {arquivo_txt.name}")
@@ -2117,24 +2031,17 @@ def converter_arquivo_worker(args):
             except Exception as e:
                 logger.warning(f"Erro na estratégia de limpeza para {arquivo_txt.name}: {str(e)}")
                 
-                # FALLBACK: Carregar como string puro (estratégia anterior)
+                # FALLBACK: Carregar como string puro
                 pbar.set_postfix_str("Fallback: carregamento como string...")
                 logger.info(f"Usando fallback de string puro para {arquivo_txt.name}")
                 
                 try:
-                    df = dd.read_csv(
+                    df = pl.read_csv(
                         arquivo_txt,
-                        sep=separador,
+                        separator=separador,
                         encoding='latin1',
-                        dtype=str,
-                        blocksize="32MB",
-                        assume_missing=True,
-                        on_bad_lines='skip',
-                        na_filter=False,
-                        keep_default_na=False,
-                        na_values=[],
-                        low_memory=False,
-                        engine='python'
+                        ignore_errors=True,
+                        truncate_ragged_lines=True
                     )
                     estrategia_usada = "fallback_string_puro"
                     logger.info(f"Sucesso no fallback string puro para {arquivo_txt.name}")
@@ -2142,10 +2049,10 @@ def converter_arquivo_worker(args):
                     logger.error(f"Todas as estratégias falharam para {arquivo_txt.name}: {str(e2)}")
                     raise e2
             
-            pbar.update(40)
+            pbar.update(20)
             
             # Obter colunas após leitura bem-sucedida
-            colunas_originais = df.columns.tolist()
+            colunas_originais = df.columns
             
             # Limpar nomes das colunas
             pbar.set_postfix_str("Limpando nomes das colunas...")
@@ -2156,24 +2063,21 @@ def converter_arquivo_worker(args):
             
             # Renomear colunas
             pbar.set_postfix_str("Processando colunas...")
-            df = df.rename(columns=mapeamento_colunas)
+            df = df.rename(mapeamento_colunas)
             
             # Adicionar coluna de metadados
-            df['ANO_RAIS'] = ano_arquivo
+            df = df.with_columns(pl.lit(ano_arquivo).alias('ANO_RAIS'))
             
-            # Reparticionar se especificado
-            if npartitions:
-                df = df.repartition(npartitions=npartitions)
-                logger.debug(f"Reparticionado {arquivo_txt.name} para {npartitions} partições")
+            if npartitions and npartitions > 1:
+                logger.debug(f"Configurando otimizações para {arquivo_txt.name} (npartitions: {npartitions})")
+            
             pbar.update(10)
             
             # Salvar como Parquet
             pbar.set_postfix_str("Salvando Parquet...")
-            df.to_parquet(
+            df.write_parquet(
                 arquivo_parquet,
-                compression='snappy',
-                write_index=False,
-                engine='pyarrow'
+                compression='snappy'
             )
             pbar.update(30)
             pbar.set_postfix_str("Concluído!")
@@ -2200,70 +2104,136 @@ def converter_arquivo_worker(args):
         logger.error(f"Traceback completo para {arquivo_txt.name}:")
         logger.error(erro_detalhado)
         
-        # Verificar se é erro de recursão específico
-        if "maximum recursion depth exceeded" in str(e):
-            logger.error(f"ERRO DE RECURSÃO DETECTADO em {arquivo_txt.name}")
-            logger.error("Possíveis causas: dados circulares, limpeza infinita, ou problema no Dask")
-            logger.error("Recomendação: Verificar estrutura dos dados ou reduzir complexidade da limpeza")
+        # Tentar estratégia de emergência para arquivos com problemas
+        try:
+            logger.info(f"Tentando estratégia de emergência para {arquivo_txt.name}")
             
-            # Tentar estratégia de emergência para arquivos com recursão
-            try:
-                logger.info(f"Tentando estratégia de emergência para {arquivo_txt.name}")
+            # Estratégia otimizada: usar chunks como primeira opção
+            # Determinar tamanho do chunk baseado no tamanho do arquivo
+            if tamanho_mb < 100:
+                chunk_size = 5000  # Arquivos pequenos: chunks menores
+            elif tamanho_mb < 500:
+                chunk_size = 2000  # Arquivos médios: chunks muito menores
+            else:
+                chunk_size = 500   # Arquivos grandes: chunks mínimos
+            
+            logger.info(f"Usando estratégia de chunks para {arquivo_txt.name} (chunk_size: {chunk_size})")
+            
+            chunks = []
+            total_chunks = 0
+            
+            # Ler arquivo em chunks usando Polars
+            with open(arquivo_txt, 'r', encoding='latin1', errors='ignore') as f:
+                header = f.readline().strip()
+                chunk_lines = []
                 
-                # Estratégia ultra-simples: apenas pandas puro sem Dask
-                import pandas as pd
+                for line in f:
+                    chunk_lines.append(line)
+                    if len(chunk_lines) >= chunk_size:
+                        # Processar chunk
+                        chunk_text = header + '\n' + ''.join(chunk_lines)
+                        try:
+                            chunk_df = pl.read_csv(
+                                chunk_text.encode('latin1'),
+                                separator=separador,
+                                encoding='latin1',
+                                null_values=['{ñ', '{ñ c', '000-1'],
+                                ignore_errors=True,
+                                truncate_ragged_lines=True
+                            )
+                            chunks.append(chunk_df)
+                            total_chunks += 1
+                            logger.debug(f"Chunk {total_chunks} processado com sucesso ({len(chunk_df)} linhas)")
+                            
+                            # Liberar memória a cada 5 chunks
+                            if total_chunks % 5 == 0:
+                                import gc
+                                gc.collect()
+                        except Exception as e_chunk:
+                            logger.warning(f"Erro no chunk {total_chunks + 1}: {str(e_chunk)}")
+                            # Tentar processar chunk com configuração mais permissiva
+                            try:
+                                chunk_df = pl.read_csv(
+                                    chunk_text.encode('latin1'),
+                                    separator=separador,
+                                    encoding='latin1',
+                                    ignore_errors=True,
+                                    truncate_ragged_lines=True
+                                )
+                                chunks.append(chunk_df)
+                                total_chunks += 1
+                                logger.debug(f"Chunk {total_chunks} processado com configuração permissiva")
+                            except Exception as e_chunk2:
+                                logger.error(f"Chunk {total_chunks + 1} falhou completamente: {str(e_chunk2)}")
+                                # Pular chunk problemático
+                                pass
+                        
+                        chunk_lines = []
                 
-                # Ler com pandas puro em chunks pequenos
-                chunk_size = 10000
-                chunks = []
-                
-                for chunk in pd.read_csv(
-                    arquivo_txt,
-                    sep=separador,
-                    encoding='latin1',
-                    dtype=str,
-                    chunksize=chunk_size,
-                    on_bad_lines='skip',
-                    na_filter=False,
-                    keep_default_na=False
-                ):
-                    # Limpeza básica no chunk
-                    chunk = chunk.replace(['{ñ', '{ñ c', '000-1'], None)
-                    chunks.append(chunk)
-                
-                # Concatenar chunks
-                df_pandas = pd.concat(chunks, ignore_index=True)
-                
-                # Converter para Dask com configuração mínima
-                df_emergencia = dd.from_pandas(df_pandas, npartitions=1)
-                
-                # Limpar nomes das colunas
-                colunas_originais = df_emergencia.columns.tolist()
-                colunas_limpas = [limpar_nome_coluna(col) for col in colunas_originais]
-                mapeamento_colunas = dict(zip(colunas_originais, colunas_limpas))
-                df_emergencia = df_emergencia.rename(columns=mapeamento_colunas)
-                
-                # Adicionar metadados
-                df_emergencia['ANO_RAIS'] = ano_arquivo
-                
-                # Salvar
-                df_emergencia.to_parquet(
-                    arquivo_parquet,
-                    compression='snappy',
-                    write_index=False,
-                    engine='pyarrow'
-                )
-                
-                tamanho_parquet = arquivo_parquet.stat().st_size / (1024*1024) if arquivo_parquet.exists() else 0
-                num_colunas = len(colunas_limpas) + 1
-                
-                logger.info(f"Estratégia de emergência bem-sucedida para {arquivo_txt.name}")
-                return f"🔄 {arquivo_txt.name} → Parquet ({num_colunas} colunas, {tamanho_parquet:.1f}MB) - EMERGÊNCIA RECURSÃO"
-                
-            except Exception as e_emergencia:
-                logger.error(f"Estratégia de emergência falhou para {arquivo_txt.name}: {str(e_emergencia)}")
-                # Se a estratégia de emergência falhar, pular o arquivo
-                pass
+                # Processar último chunk se houver
+                if chunk_lines:
+                    chunk_text = header + '\n' + ''.join(chunk_lines)
+                    try:
+                        chunk_df = pl.read_csv(
+                            chunk_text.encode('latin1'),
+                            separator=separador,
+                            encoding='latin1',
+                            null_values=['{ñ', '{ñ c', '000-1'],
+                            ignore_errors=True,
+                            truncate_ragged_lines=True
+                        )
+                        chunks.append(chunk_df)
+                        total_chunks += 1
+                        logger.debug(f"Último chunk processado com sucesso ({len(chunk_df)} linhas)")
+                    except Exception as e_last_chunk:
+                        logger.warning(f"Erro no último chunk: {str(e_last_chunk)}")
+                        # Tentar com configuração permissiva
+                        try:
+                            chunk_df = pl.read_csv(
+                                chunk_text.encode('latin1'),
+                                separator=separador,
+                                encoding='latin1',
+                                ignore_errors=True,
+                                truncate_ragged_lines=True
+                            )
+                            chunks.append(chunk_df)
+                            total_chunks += 1
+                        except Exception as e_last_chunk2:
+                            logger.error(f"Último chunk falhou completamente: {str(e_last_chunk2)}")
+            
+            # Concatenar chunks
+            if chunks:
+                logger.info(f"Concatenando {len(chunks)} chunks processados com sucesso")
+                df_emergencia = pl.concat(chunks)
+                logger.info(f"Estratégia de chunks bem-sucedida: {len(df_emergencia)} linhas totais")
+            else:
+                raise Exception("Nenhum chunk foi processado com sucesso")
+            
+            # Limpar nomes das colunas
+            colunas_originais = df_emergencia.columns
+            colunas_limpas = [limpar_nome_coluna(col) for col in colunas_originais]
+            mapeamento_colunas = dict(zip(colunas_originais, colunas_limpas))
+            df_emergencia = df_emergencia.rename(mapeamento_colunas)
+            
+            # Adicionar metadados
+            df_emergencia = df_emergencia.with_columns(pl.lit(ano_arquivo).alias('ANO_RAIS'))
+            
+            # Salvar
+            df_emergencia.write_parquet(
+                arquivo_parquet,
+                compression='snappy'
+            )
+            
+            tamanho_parquet = arquivo_parquet.stat().st_size / (1024*1024) if arquivo_parquet.exists() else 0
+            num_colunas = len(colunas_limpas) + 1
+            
+            logger.info(f"Estratégia de emergência bem-sucedida para {arquivo_txt.name}")
+            return f"🔄 {arquivo_txt.name} → Parquet ({num_colunas} colunas, {tamanho_parquet:.1f}MB) - EMERGÊNCIA"
+            
+        except Exception as e_emergencia:
+            logger.error(f"Estratégia de emergência falhou para {arquivo_txt.name}: {str(e_emergencia)}")
+            # Se a estratégia de emergência falhar, pular o arquivo
+            pass
         
         return f"⏭️  PULANDO {arquivo_txt.name}: Erro na conversão - {str(e)}"
 
@@ -2540,8 +2510,8 @@ def consolidar_parquets(anos=None, sobrescrever=False, preservar_arquivos=False,
             # Processar todos os diretórios Parquet com barra de progresso
             for dir_parquet in tqdm(diretorios_parquet, desc=f"  📖 Lendo Parquets {ano}", unit="arquivo", leave=False):
                 try:
-                    # Ler o arquivo Parquet com Dask
-                    df = dd.read_parquet(dir_parquet)
+                    # Ler o arquivo Parquet
+                    df = pl.read_parquet(dir_parquet)
                     
                     # Obter informações do DataFrame
                     try:
@@ -2573,7 +2543,7 @@ def consolidar_parquets(anos=None, sobrescrever=False, preservar_arquivos=False,
             # Concatenar todos os DataFrames
             print(f"  🔗 Concatenando {len(dfs)} DataFrames...")
             with tqdm(desc=f"  🔗 Consolidando {ano}", unit="dataframe", total=len(dfs), leave=False) as pbar_concat:
-                df_consolidado = dd.concat(dfs)
+                df_consolidado = pl.concat(dfs)
                 pbar_concat.update(len(dfs))
             
             # Informações sobre o DataFrame consolidado
@@ -2663,14 +2633,11 @@ def consolidar_geral(sobrescrever=False, incremental=False, remover_anos_individ
     """
     Consolida todos os arquivos consolidados de todos os anos em uma única pasta.
     
-    COMPORTAMENTO OTIMIZADO:
     - Lê APENAS arquivos RAIS_20XX_consolidado (ignora AL20XX.parquet, AC20XX.parquet, etc.)
     - Assume que arquivos individuais já foram removidos durante consolidação por ano
     
     ORIENTAÇÕES TÉCNICAS BASEADAS NA ESTRUTURA OFICIAL DA RAIS:
-    
-    ✅ CONSOLIDAÇÃO APROVADA - Justificativas técnicas:
-    
+        
     1. COMPATIBILIDADE DE SCHEMA: Todos os arquivos de vínculos RAIS possuem
        estrutura idêntica (60+ campos padronizados desde 2006)
        
@@ -2725,9 +2692,9 @@ def consolidar_geral(sobrescrever=False, incremental=False, remover_anos_individ
     if incremental and arquivo_consolidado_geral.exists():
         try:
             print("🔄 Modo incremental: verificando anos já consolidados...")
-            df_existente = dd.read_parquet(arquivo_consolidado_geral)
+            df_existente = pl.read_parquet(arquivo_consolidado_geral)
             if 'ANO_RAIS' in df_existente.columns:
-                anos_existentes_consolidado = set(df_existente['ANO_RAIS'].unique().compute())
+                anos_existentes_consolidado = set(df_existente['ANO_RAIS'].unique())
                 print(f"   Anos já consolidados: {sorted(anos_existentes_consolidado)}")
             else:
                 print("   ⚠️ Coluna ANO_RAIS não encontrada no arquivo existente, processando todos os anos")
@@ -2783,7 +2750,7 @@ def consolidar_geral(sobrescrever=False, incremental=False, remover_anos_individ
         if incremental and arquivo_consolidado_geral.exists():
             print(f"\n🔗 Carregando dados existentes...")
             try:
-                df_existente = dd.read_parquet(arquivo_consolidado_geral)
+                df_existente = pl.read_parquet(arquivo_consolidado_geral)
                 dfs.append(df_existente)
                 print(f"  ✅ Dados existentes carregados com sucesso")
             except Exception as e:
@@ -2795,8 +2762,8 @@ def consolidar_geral(sobrescrever=False, incremental=False, remover_anos_individ
         # Processar todos os arquivos consolidados com barra de progresso
         for ano, arquivo_consolidado in tqdm(arquivos_consolidados, desc="📖 Carregando anos", unit="ano"):
             try:
-                # Ler o arquivo consolidado com Dask
-                df = dd.read_parquet(arquivo_consolidado)
+                # Ler o arquivo consolidado
+                df = pl.read_parquet(arquivo_consolidado)
                 
                 # Garantir que existe a coluna ANO_RAIS
                 if 'ANO_RAIS' not in df.columns:
@@ -2906,7 +2873,7 @@ def consolidar_geral(sobrescrever=False, incremental=False, remover_anos_individ
         
         with tqdm(desc="🔗 Consolidando geral", unit="ano", total=len(dfs)) as pbar_concat:
             try:
-                df_consolidado = dd.concat(dfs, ignore_index=True)
+                df_consolidado = pl.concat(dfs)
                 pbar_concat.update(len(dfs))
                 print("✅ Concatenação bem-sucedida!")
             except Exception as e:
@@ -2933,7 +2900,7 @@ def consolidar_geral(sobrescrever=False, incremental=False, remover_anos_individ
                         df = df[sorted(todas_colunas)]
                         dfs_alinhados.append(df)
                     
-                    df_consolidado = dd.concat(dfs_alinhados, ignore_index=True)
+                    df_consolidado = pl.concat(dfs_alinhados)
                     pbar_concat.update(len(dfs))
                     print("✅ Concatenação com alinhamento bem-sucedida!")
                 except Exception as e2:
@@ -3458,7 +3425,7 @@ def processar_sequencial_otimizado(anos=None, sobrescrever=False, max_arquivos=N
                 continue
             
             # ETAPA 4: CONSOLIDAÇÃO
-            print(f"\n📊 ETAPA 4: Consolidação dos arquivos Parquet do ano {ano}")
+            print(f"\n�� ETAPA 4: Consolidação dos arquivos Parquet do ano {ano}")
             iniciar_tempo(f"Consolidação {ano}")
             
             # Consolidar arquivos Parquet do ano
