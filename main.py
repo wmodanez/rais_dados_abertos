@@ -9,6 +9,7 @@ from tqdm import tqdm
 # Importar as classes do módulo util
 from src.util.gerenciador_ftp import GerenciadorArquivosFTP
 from src.util.descompactador import DescompactadorArquivos
+from src.util.conversor_parquet import ConversorParquet
 
 
 def configurar_logging(nivel_log: str = "INFO") -> logging.Logger:
@@ -165,6 +166,25 @@ Exemplos de uso:
         help="Apenas descompactar arquivos .7z existentes, sem baixar novos arquivos"
     )
     
+    parser.add_argument(
+        "--converter-parquet",
+        action="store_true",
+        help="Converter arquivos TXT descompactados para formato Parquet"
+    )
+    
+    parser.add_argument(
+        "--apenas-converter-parquet",
+        action="store_true",
+        help="Apenas converter arquivos TXT para Parquet, sem baixar ou descompactar"
+    )
+    
+    parser.add_argument(
+        "--chunk-size",
+        type=int,
+        default=100000,
+        help="Tamanho do chunk para conversão Parquet (padrão: 100000 linhas)"
+    )
+    
     return parser
 
 
@@ -266,6 +286,31 @@ def main():
                     logger.warning(f"Descompactação concluída com {falhas_descompactar} falhas")
                 else:
                     logger.info("Descompactação concluída com sucesso")
+            
+            # Converter para Parquet se solicitado
+            if args.converter_parquet:
+                logger.info("Iniciando conversão para Parquet...")
+                conversor = ConversorParquet(
+                    chunk_size=args.chunk_size,
+                    max_workers=args.max_workers
+                )
+                
+                # Determinar ano para conversão
+                ano_conversao = args.ano
+                if args.faixa_anos and len(args.faixa_anos) >= 1:
+                    ano_conversao = args.faixa_anos[0]
+                
+                resultado_conversao = conversor.converter_diretorio("files-unzip", ano=ano_conversao)
+                
+                print(f"\nResultado da conversão para Parquet:")
+                print(f"  Total de arquivos: {resultado_conversao['total']}")
+                print(f"  Arquivos convertidos: {resultado_conversao['convertidos']}")
+                print(f"  Falhas: {resultado_conversao['falhas']}")
+                
+                if resultado_conversao['falhas'] > 0:
+                    logger.warning(f"Conversão concluída com {resultado_conversao['falhas']} falhas")
+                else:
+                    logger.info("Conversão para Parquet concluída com sucesso")
         
         elif args.apenas_descompactar:
             logger.info("Iniciando apenas descompactação de arquivos...")
@@ -281,6 +326,30 @@ def main():
                 logger.warning(f"Descompactação concluída com {falhas_descompactar} falhas")
             else:
                 logger.info("Descompactação concluída com sucesso")
+        
+        elif args.apenas_converter_parquet:
+            logger.info("Iniciando apenas conversão para Parquet...")
+            conversor = ConversorParquet(
+                chunk_size=args.chunk_size,
+                max_workers=args.max_workers
+            )
+            
+            # Determinar ano para conversão
+            ano_conversao = args.ano
+            if args.faixa_anos and len(args.faixa_anos) >= 1:
+                ano_conversao = args.faixa_anos[0]
+            
+            resultado_conversao = conversor.converter_diretorio("files-unzip", ano=ano_conversao)
+            
+            print(f"\nResultado da conversão para Parquet:")
+            print(f"  Total de arquivos: {resultado_conversao['total']}")
+            print(f"  Arquivos convertidos: {resultado_conversao['convertidos']}")
+            print(f"  Falhas: {resultado_conversao['falhas']}")
+            
+            if resultado_conversao['falhas'] > 0:
+                logger.warning(f"Conversão concluída com {resultado_conversao['falhas']} falhas")
+            else:
+                logger.info("Conversão para Parquet concluída com sucesso")
         
     except KeyboardInterrupt:
         logger.info("Operação interrompida pelo usuário")
