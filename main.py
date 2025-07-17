@@ -7,7 +7,6 @@ from pathlib import Path
 from tqdm import tqdm
 
 # Importar as classes do módulo util
-from src.util.gerenciador_ftp import GerenciadorArquivosFTP
 from src.util.descompactador import DescompactadorArquivos
 from src.util.conversor_parquet import ConversorParquet
 
@@ -66,13 +65,18 @@ def criar_parser_argumentos() -> argparse.ArgumentParser:
         ArgumentParser configurado
     """
     parser = argparse.ArgumentParser(
-        description="Gerenciador de arquivos FTP para dados RAIS",
+        description="Gerenciador de arquivos para dados RAIS - Download, descompactação e conversão para Parquet",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Exemplos de uso:
-  python main.py --servidor ftp.mtps.gov.br --diretorio-remoto /pdet/microdados/RAIS
-  python main.py --servidor ftp.mtps.gov.br --diretorio-local dados-rais --nivel-log DEBUG
-  python main.py --listar-diretorios --servidor ftp.mtps.gov.br
+  # Trabalhar localmente (sem acessar servidor FTP):
+  python main.py --apenas-descompactar
+  python main.py --apenas-converter-parquet --ano 2024
+  
+  # Acessar servidor FTP:
+  python main.py --sincronizar --ano 2024
+  python main.py --listar-diretorios
+  python main.py --listar-arquivos
         """
     )
     
@@ -137,8 +141,7 @@ Exemplos de uso:
     parser.add_argument(
         "--sincronizar",
         action="store_true",
-        default=True,
-        help="Sincronizar arquivos (comportamento padrão)"
+        help="Sincronizar arquivos do servidor FTP"
     )
     
     parser.add_argument(
@@ -199,23 +202,46 @@ def main():
     # Configurar logging
     logger = configurar_logging(args.nivel_log)
     
+    # Registrar o comando executado
+    comando_executado = " ".join(sys.argv)
+    logger.info(f"Comando executado: {comando_executado}")
+    
     try:
-        # Criar instância do gerenciador
-        gerenciador = GerenciadorArquivosFTP(
-            servidor_ftp=args.servidor,
-            diretorio_remoto=args.diretorio_remoto,
-            max_tentativas=args.max_tentativas,
-            tempo_espera=args.tempo_espera,
-            max_workers=args.max_workers
-        )
+        # Verificar se alguma ação foi especificada
+        acoes_especificadas = any([
+            args.listar_diretorios,
+            args.listar_arquivos,
+            args.sincronizar,
+            args.apenas_descompactar,
+            args.apenas_converter_parquet
+        ])
         
-        logger.info(f"Gerenciador configurado:")
-        logger.info(f"  Servidor: {args.servidor}")
-        logger.info(f"  Diretório remoto: {args.diretorio_remoto}")
-        logger.info(f"  Diretório local: files-zip")
-        logger.info(f"  Máx tentativas: {args.max_tentativas}")
-        logger.info(f"  Tempo espera: {args.tempo_espera}s")
-        logger.info(f"  Máx workers: {args.max_workers}")
+        if not acoes_especificadas:
+            print("Nenhuma ação especificada. Use --help para ver as opções disponíveis.")
+            parser.print_help()
+            return
+        
+        # Criar instância do gerenciador apenas se necessário
+        gerenciador = None
+        if any([args.listar_diretorios, args.listar_arquivos, args.sincronizar]):
+            # Importar apenas quando necessário para evitar conexão desnecessária
+            from src.util.gerenciador_ftp import GerenciadorArquivosFTP
+            
+            gerenciador = GerenciadorArquivosFTP(
+                servidor_ftp=args.servidor,
+                diretorio_remoto=args.diretorio_remoto,
+                max_tentativas=args.max_tentativas,
+                tempo_espera=args.tempo_espera,
+                max_workers=args.max_workers
+            )
+            
+            logger.info(f"Gerenciador configurado:")
+            logger.info(f"  Servidor: {args.servidor}")
+            logger.info(f"  Diretório remoto: {args.diretorio_remoto}")
+            logger.info(f"  Diretório local: files-zip")
+            logger.info(f"  Máx tentativas: {args.max_tentativas}")
+            logger.info(f"  Tempo espera: {args.tempo_espera}s")
+            logger.info(f"  Máx workers: {args.max_workers}")
         
         # Executar ações baseadas nos argumentos
         if args.listar_diretorios:
