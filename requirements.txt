@@ -1,8 +1,8 @@
 py7zr
 tqdm
 argparse
-dask
-dask[dataframe]
-pyarrow
-fastparquet
 psutil
+requests
+polars
+memory-profiler
+pyarrow
