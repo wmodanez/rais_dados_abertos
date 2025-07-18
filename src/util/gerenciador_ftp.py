@@ -9,6 +9,7 @@ from tqdm import tqdm
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import threading
 import re
+from datetime import datetime
 
 # Configuração de logging
 logger = logging.getLogger("gerenciador_arquivos")
@@ -451,6 +452,146 @@ class GerenciadorArquivosFTP:
 
 
 
+    def _verificar_arquivo_remoto(self, ftp: ftplib.FTP, nome_arquivo: str) -> Dict[str, Any]:
+        """
+        Obtém informações detalhadas do arquivo remoto.
+        
+        Args:
+            ftp: Conexão FTP ativa
+            nome_arquivo: Nome do arquivo remoto
+            
+        Returns:
+            Dicionário com informações do arquivo (tamanho, data_modificacao, etc.)
+        """
+        info = {
+            "tamanho": 0,
+            "data_modificacao": None,
+            "hash_md5": None
+        }
+        
+        try:
+            # Obter tamanho
+            ftp.voidcmd('TYPE I')  # Modo binário
+            info["tamanho"] = ftp.size(nome_arquivo)
+            
+            # Obter data de modificação
+            try:
+                # Tentar obter data de modificação via MDTM
+                resposta = ftp.voidcmd(f'MDTM {nome_arquivo}')
+                if resposta.startswith('213'):
+                    # Formato: 213 20231201120000
+                    data_str = resposta[4:].strip()
+                    if len(data_str) >= 14:
+                        ano = int(data_str[:4])
+                        mes = int(data_str[4:6])
+                        dia = int(data_str[6:8])
+                        hora = int(data_str[8:10])
+                        minuto = int(data_str[10:12])
+                        segundo = int(data_str[12:14])
+                        from datetime import datetime
+                        info["data_modificacao"] = datetime(ano, mes, dia, hora, minuto, segundo)
+            except:
+                # Se MDTM não funcionar, usar LIST
+                try:
+                    itens = []
+                    ftp.dir(nome_arquivo, lambda x: itens.append(x))
+                    if itens:
+                        # Parse da linha LIST para extrair data
+                        linha = itens[0]
+                        # Formato típico: "MM/DD/YYYY HH:MM tamanho nome"
+                        partes = linha.split()
+                        if len(partes) >= 6:
+                            data_str = f"{partes[0]} {partes[1]} {partes[2]} {partes[3]}"
+                            from datetime import datetime
+                            try:
+                                info["data_modificacao"] = datetime.strptime(data_str, "%m/%d/%Y %H:%M")
+                            except:
+                                pass
+                except:
+                    pass
+            
+            # Tentar obter hash MD5 se o servidor suportar
+            try:
+                resposta = ftp.voidcmd(f'MD5 {nome_arquivo}')
+                if resposta.startswith('213'):
+                    info["hash_md5"] = resposta[4:].strip()
+            except:
+                # Servidor não suporta MD5
+                pass
+                
+        except Exception as e:
+            logger.debug(f"Erro ao obter informações do arquivo remoto {nome_arquivo}: {e}")
+        
+        return info
+    
+    def _verificar_arquivo_local(self, caminho_arquivo: Path) -> Dict[str, Any]:
+        """
+        Obtém informações detalhadas do arquivo local.
+        
+        Args:
+            caminho_arquivo: Caminho do arquivo local
+            
+        Returns:
+            Dicionário com informações do arquivo (tamanho, data_modificacao, hash_md5)
+        """
+        info = {
+            "tamanho": 0,
+            "data_modificacao": None,
+            "hash_md5": None
+        }
+        
+        if not caminho_arquivo.exists():
+            return info
+        
+        try:
+            stat = caminho_arquivo.stat()
+            info["tamanho"] = stat.st_size
+            info["data_modificacao"] = datetime.fromtimestamp(stat.st_mtime)
+            info["hash_md5"] = self.calcular_hash_arquivo(caminho_arquivo)
+        except Exception as e:
+            logger.debug(f"Erro ao obter informações do arquivo local {caminho_arquivo}: {e}")
+        
+        return info
+    
+    def _arquivo_precisa_baixar(self, nome_arquivo: str, info_remoto: Dict[str, Any]) -> bool:
+        """
+        Verifica se o arquivo precisa ser baixado comparando informações locais e remotas.
+        
+        Args:
+            nome_arquivo: Nome do arquivo
+            info_remoto: Informações do arquivo remoto
+            
+        Returns:
+            True se o arquivo precisa ser baixado, False caso contrário
+        """
+        caminho_local = self._destino_arquivo_zip(nome_arquivo)
+        info_local = self._verificar_arquivo_local(caminho_local)
+        
+        # Se o arquivo local não existe, precisa baixar
+        if not caminho_local.exists():
+            logger.info(f"Arquivo {nome_arquivo} não existe localmente")
+            return True
+        
+        # Comparar tamanho
+        if info_remoto["tamanho"] > 0 and info_local["tamanho"] != info_remoto["tamanho"]:
+            logger.info(f"Arquivo {nome_arquivo} tem tamanho diferente (local: {info_local['tamanho']}, remoto: {info_remoto['tamanho']})")
+            return True
+        
+        # Comparar hash MD5 se disponível
+        if info_remoto["hash_md5"] and info_local["hash_md5"]:
+            if info_local["hash_md5"] != info_remoto["hash_md5"]:
+                logger.info(f"Arquivo {nome_arquivo} tem hash MD5 diferente")
+                return True
+        
+        # Comparar data de modificação se disponível
+        if info_remoto["data_modificacao"] and info_local["data_modificacao"]:
+            if info_local["data_modificacao"] < info_remoto["data_modificacao"]:
+                logger.info(f"Arquivo {nome_arquivo} é mais antigo que o remoto")
+                return True
+        
+        logger.debug(f"Arquivo {nome_arquivo} está atualizado, pulando download")
+        return False
+    
     def baixar_arquivo(self, nome_arquivo: str) -> bool:
         """
         Baixa um arquivo do servidor FTP com tolerância a falhas.
@@ -543,35 +684,47 @@ class GerenciadorArquivosFTP:
         
         # Filtrar arquivos que precisam ser baixados
         arquivos_para_baixar = []
-        for arquivo_info in arquivos_remotos:
-            nome_arquivo = arquivo_info.get("nome")
-            tamanho_remoto = arquivo_info.get("tamanho", 0)
-            
-            # Verificar se o arquivo precisa ser baixado
-            precisa_baixar = False
-            
-            if nome_arquivo not in arquivos_locais:
-                logger.info(f"Arquivo {nome_arquivo} não encontrado localmente")
-                precisa_baixar = True
-            else:
-                # Verificar tamanho do arquivo local
-                caminho_local = self._destino_arquivo_zip(nome_arquivo)
-                if caminho_local.exists():
-                    tamanho_local = caminho_local.stat().st_size
-                    if tamanho_remoto > 0 and tamanho_local != tamanho_remoto:
-                        logger.info(f"Arquivo {nome_arquivo} possui tamanho diferente do remoto")
-                        precisa_baixar = True
-            
-            if precisa_baixar:
-                arquivos_para_baixar.append(nome_arquivo)
+        arquivos_verificados = 0
+        
+        logger.info("Verificando arquivos que precisam ser baixados...")
+        
+        # Conectar ao FTP uma vez para verificar todos os arquivos
+        ftp = self._conectar_ftp()
+        if not ftp:
+            logger.error("Não foi possível conectar ao FTP para verificação")
+            return 0, 0, 0
+        
+        try:
+            for arquivo_info in arquivos_remotos:
+                nome_arquivo = arquivo_info.get("nome")
+                arquivos_verificados += 1
+                
+                # Obter informações detalhadas do arquivo remoto
+                info_remoto = self._verificar_arquivo_remoto(ftp, nome_arquivo)
+                
+                # Verificar se o arquivo precisa ser baixado
+                if self._arquivo_precisa_baixar(nome_arquivo, info_remoto):
+                    arquivos_para_baixar.append(nome_arquivo)
+                
+                # Log de progresso a cada 10 arquivos verificados
+                if arquivos_verificados % 10 == 0:
+                    logger.info(f"Verificados {arquivos_verificados}/{len(arquivos_remotos)} arquivos...")
+        
+        finally:
+            try:
+                ftp.quit()
+            except:
+                pass
         
         total = len(arquivos_remotos)
         baixados = 0
         falhas = 0
         
+        logger.info(f"Verificação concluída: {len(arquivos_para_baixar)} de {total} arquivos precisam ser baixados")
+        
         if not arquivos_para_baixar:
-            logger.info("Nenhum arquivo precisa ser baixado")
-            return total, baixados, falhas
+            logger.info("Todos os arquivos estão atualizados!")
+            return total, 0, 0
         
         logger.info(f"Iniciando download paralelo de {len(arquivos_para_baixar)} arquivos com {self.max_workers} workers")
         

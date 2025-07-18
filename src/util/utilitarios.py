@@ -8,6 +8,37 @@ from contextlib import contextmanager
 logger = logging.getLogger("utilitarios")
 
 
+def formatar_tempo(segundos: float) -> str:
+    """
+    Formata um tempo em segundos para um formato mais legível (H:M:S).
+    
+    Args:
+        segundos: Tempo em segundos
+        
+    Returns:
+        String formatada no formato H:M:S ou M:S para tempos menores que 1 hora
+        
+    Exemplos:
+        >>> formatar_tempo(3661)
+        '1:01:01'
+        >>> formatar_tempo(125)
+        '2:05'
+        >>> formatar_tempo(45.5)
+        '0:45'
+    """
+    if segundos < 0:
+        return "0:00"
+    
+    horas = int(segundos // 3600)
+    minutos = int((segundos % 3600) // 60)
+    segs = int(segundos % 60)
+    
+    if horas > 0:
+        return f"{horas}:{minutos:02d}:{segs:02d}"
+    else:
+        return f"{minutos}:{segs:02d}"
+
+
 class MedidorTempo:
     """
     Classe para medir o tempo de processamento de diferentes etapas.
@@ -38,7 +69,8 @@ class MedidorTempo:
         """Finaliza a medição do tempo total do processo."""
         self.tempo_fim = time.time()
         tempo_total = self.tempo_fim - self.tempo_inicio
-        logger.info(f"Processo '{self.nome_processo}' finalizado em {tempo_total:.2f} segundos")
+        tempo_formatado = formatar_tempo(tempo_total)
+        logger.info(f"Processo '{self.nome_processo}' finalizado em {tempo_formatado}")
         return tempo_total
     
     def iniciar_etapa(self, nome_etapa: str):
@@ -60,7 +92,8 @@ class MedidorTempo:
         if self.etapa_atual and self.tempo_etapa_inicio:
             tempo_etapa = time.time() - self.tempo_etapa_inicio
             self.etapas[self.etapa_atual] = tempo_etapa
-            logger.info(f"Etapa '{self.etapa_atual}' finalizada em {tempo_etapa:.2f} segundos")
+            tempo_formatado = formatar_tempo(tempo_etapa)
+            logger.info(f"Etapa '{self.etapa_atual}' finalizada em {tempo_formatado}")
             self.etapa_atual = None
             self.tempo_etapa_inicio = None
     
@@ -119,22 +152,27 @@ class MedidorTempo:
         """Imprime um resumo formatado dos tempos medidos."""
         resumo = self.obter_resumo()
         
+        tempo_total_formatado = formatar_tempo(resumo['tempo_total'])
+        tempo_etapas_formatado = formatar_tempo(resumo['tempo_etapas'])
+        tempo_nao_medido_formatado = formatar_tempo(resumo['tempo_nao_medido'])
+        
         print(f"\n{'='*60}")
         print(f"RESUMO DE TEMPO - {resumo['processo'].upper()}")
         print(f"{'='*60}")
-        print(f"Tempo Total: {resumo['tempo_total']:.2f} segundos")
-        print(f"Tempo das Etapas: {resumo['tempo_etapas']:.2f} segundos ({resumo['percentual_etapas']:.1f}%)")
+        print(f"Tempo Total: {tempo_total_formatado}")
+        print(f"Tempo das Etapas: {tempo_etapas_formatado} ({resumo['percentual_etapas']:.1f}%)")
         if resumo['tempo_nao_medido'] > 0:
-            print(f"Tempo Não Medido: {resumo['tempo_nao_medido']:.2f} segundos")
+            print(f"Tempo Não Medido: {tempo_nao_medido_formatado}")
         
         if resumo['etapas']:
             print(f"\nDetalhamento por Etapa:")
-            print(f"{'Etapa':<30} {'Tempo (s)':<12} {'% do Total':<10}")
-            print(f"{'-'*30} {'-'*12} {'-'*10}")
+            print(f"{'Etapa':<35} {'Tempo':<10} {'% do Total':<10}")
+            print(f"{'-'*35} {'-'*10} {'-'*10}")
             
             for etapa, tempo in resumo['etapas'].items():
                 percentual = (tempo / resumo['tempo_total'] * 100) if resumo['tempo_total'] > 0 else 0
-                print(f"{etapa:<30} {tempo:<12.2f} {percentual:<10.1f}%")
+                tempo_formatado = formatar_tempo(tempo)
+                print(f"{etapa:<35} {tempo_formatado:<10} {percentual:<10.1f}%")
         
         print(f"{'='*60}")
 

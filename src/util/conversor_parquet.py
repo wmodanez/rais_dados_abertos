@@ -16,7 +16,7 @@ from .utilitarios import padronizar_colunas_dataframe
 logger = logging.getLogger("conversor_parquet")
 
 class ConversorParquet:
-    def __init__(self, chunk_size: Optional[int] = None, max_workers: Optional[int] = None):
+    def __init__(self, chunk_size: Optional[int] = None, max_workers: Optional[int] = None, campos_especificos: Optional[List[str]] = None):
         """
         Inicializa o conversor de arquivos TXT para Parquet.
         
@@ -25,6 +25,8 @@ class ConversorParquet:
                       Se None, será calculado automaticamente para cada arquivo.
             max_workers: Número máximo de workers para processamento paralelo.
                        Se None, será detectado automaticamente.
+            campos_especificos: Lista de campos específicos a serem incluídos na conversão.
+                              Se None, todos os campos serão incluídos.
         """
         # Detectar número de workers automaticamente se não especificado
         if max_workers is None:
@@ -34,6 +36,9 @@ class ConversorParquet:
         
         # Chunk size será calculado dinamicamente se não especificado
         self.chunk_size_fixo = chunk_size
+        
+        # Campos específicos para filtrar durante a conversão
+        self.campos_especificos = [campo.upper() for campo in campos_especificos] if campos_especificos else None
         
         # Criar diretório parquet se não existir
         Path("parquet").mkdir(exist_ok=True)
@@ -45,6 +50,11 @@ class ConversorParquet:
             logger.info(f"Conversor configurado - Chunk size: automático, Max workers: {self.max_workers}")
         else:
             logger.info(f"Conversor configurado - Chunk size: {chunk_size}, Max workers: {self.max_workers}")
+        
+        if self.campos_especificos:
+            logger.info(f"Conversor configurado - Campos específicos: {self.campos_especificos}")
+        else:
+            logger.info("Conversor configurado - Todos os campos serão incluídos")
     
     def _detectar_workers_otimos(self) -> int:
         """
@@ -196,6 +206,51 @@ class ConversorParquet:
             logger.warning(f"Erro ao detectar separador para {caminho_arquivo}: {e}")
             return ';'  # Separador padrão
     
+    def _mapear_campos_especificos(self, df_colunas: List[str]) -> Optional[List[str]]:
+        """
+        Mapeia os campos específicos para os nomes originais das colunas.
+        
+        Args:
+            df_colunas: Lista com os nomes originais das colunas
+            
+        Returns:
+            Lista com os nomes originais das colunas a serem incluídas, ou None se não há filtro
+        """
+        if not self.campos_especificos:
+            return None
+        
+        # Padronizar colunas do DataFrame
+        mapeamento_colunas = padronizar_colunas_dataframe(df_colunas)
+        
+        # Mapear campos específicos para nomes originais
+        colunas_incluir = []
+        campos_nao_encontrados = []
+        
+        for campo_especifico in self.campos_especificos:
+            campo_encontrado = False
+            
+            # Procurar por correspondência exata ou parcial
+            for nome_original, nome_padronizado in mapeamento_colunas.items():
+                if campo_especifico == nome_padronizado or campo_especifico in nome_padronizado:
+                    colunas_incluir.append(nome_original)
+                    campo_encontrado = True
+                    logger.debug(f"Campo '{campo_especifico}' mapeado para '{nome_original}'")
+                    break
+            
+            if not campo_encontrado:
+                campos_nao_encontrados.append(campo_especifico)
+        
+        if campos_nao_encontrados:
+            logger.warning(f"Campos não encontrados: {campos_nao_encontrados}")
+            logger.info(f"Colunas disponíveis: {list(mapeamento_colunas.values())}")
+        
+        if colunas_incluir:
+            logger.info(f"Campos específicos mapeados: {colunas_incluir}")
+            return colunas_incluir
+        else:
+            logger.error("Nenhum campo específico foi encontrado")
+            return None
+    
     def _contar_linhas_arquivo(self, caminho_arquivo: Path) -> int:
         """
         Conta o número total de linhas no arquivo.
@@ -328,9 +383,6 @@ class ConversorParquet:
                 'Regiões Adm DF'
             ]
             
-            # Armazenar lista de colunas removidas para uso posterior
-            self._colunas_removidas = colunas_remover
-            
             # Obter chunk size (fixo ou calculado)
             if self.chunk_size_fixo is None:
                 chunk_size = self._obter_chunk_size_padrao(caminho_arquivo_txt.stat().st_size)
@@ -346,6 +398,8 @@ class ConversorParquet:
             
             # Ler arquivo completo uma vez e aplicar transformações
             logger.info("Lendo arquivo completo e aplicando transformações...")
+            
+            # Ler arquivo completo
             df_completo = pl.read_csv(
                 caminho_arquivo_txt,
                 separator=separador,
@@ -354,25 +408,8 @@ class ConversorParquet:
                 truncate_ragged_lines=True
             )
             
-            # Remover colunas desejadas ANTES de renomear (apenas as que existem)
-            if self._colunas_removidas:
-                colunas_existentes = [col for col in self._colunas_removidas if col in df_completo.columns]
-                if colunas_existentes:
-                    df_completo = df_completo.drop(colunas_existentes)
-                    logger.info(f"Colunas removidas: {colunas_existentes}")
-                else:
-                    logger.info("Nenhuma das colunas especificadas foi encontrada no arquivo")
-            
-            # Aplicar mapeamento de colunas para renomear
+            # Aplicar mapeamento de colunas para renomear PRIMEIRO
             if hasattr(self, '_mapeamento_colunas') and self._mapeamento_colunas:
-                # Verificar se todas as colunas do mapeamento existem no DataFrame
-                colunas_mapeamento = list(self._mapeamento_colunas.keys())
-                colunas_existentes = [col for col in colunas_mapeamento if col in df_completo.columns]
-                colunas_inexistentes = [col for col in colunas_mapeamento if col not in df_completo.columns]
-                
-                if colunas_inexistentes:
-                    logger.warning(f"Colunas não encontradas no arquivo: {colunas_inexistentes}")
-                
                 # Criar mapeamento apenas com colunas existentes
                 mapeamento_filtrado = {k: v for k, v in self._mapeamento_colunas.items() if k in df_completo.columns}
                 
@@ -381,6 +418,36 @@ class ConversorParquet:
                     logger.info(f"Colunas renomeadas com sucesso: {len(mapeamento_filtrado)} colunas")
                 else:
                     logger.warning("Nenhuma coluna foi renomeada")
+            
+            # Remover colunas específicas que não são necessárias
+            colunas_remover = [
+                'BAIRROS_SP',
+                'BAIRROS_FORTALEZA', 
+                'BAIRROS_RJ',
+                'DISTRITOS_SP',
+                'REGIOES_ADM_DF'
+            ]
+            
+            # Remover apenas as colunas que existem no DataFrame
+            colunas_existentes_para_remover = [col for col in colunas_remover if col in df_completo.columns]
+            if colunas_existentes_para_remover:
+                df_completo = df_completo.drop(colunas_existentes_para_remover)
+                logger.info(f"Colunas removidas: {colunas_existentes_para_remover}")
+            
+            # Filtrar apenas os campos específicos solicitados DEPOIS da renomeação
+            if self.campos_especificos:
+                # Verificar quais campos solicitados existem no DataFrame
+                campos_disponiveis = [campo for campo in self.campos_especificos if campo in df_completo.columns]
+                campos_nao_encontrados = [campo for campo in self.campos_especificos if campo not in df_completo.columns]
+                
+                if campos_nao_encontrados:
+                    logger.warning(f"Campos não encontrados no arquivo: {campos_nao_encontrados}")
+                
+                if campos_disponiveis:
+                    df_completo = df_completo.select(campos_disponiveis)
+                    logger.info(f"Filtrando apenas os campos: {campos_disponiveis}")
+                else:
+                    logger.warning("Nenhum dos campos solicitados foi encontrado no arquivo")
             
             # Adicionar coluna ANO
             df_completo = df_completo.with_columns([
@@ -441,33 +508,23 @@ class ConversorParquet:
                                 chunks_processados += 1
                             pbar.update(1)
                         except Exception as e:
-                            logger.error(f"Exceção no chunk {chunk_idx}: {e}")
+                            logger.error(f"Erro no chunk {chunk_idx}: {e}")
                             pbar.update(1)
             
-            # Verificar se pelo menos um chunk foi processado
-            if chunks_processados > 0:
-                logger.info(f"Conversão concluída: {chunks_processados} chunks salvos em {diretorio_destino}")
-                # Limpar mapeamento de colunas após processamento
-                if hasattr(self, '_mapeamento_colunas'):
-                    delattr(self, '_mapeamento_colunas')
-                if hasattr(self, '_colunas_removidas'):
-                    delattr(self, '_colunas_removidas')
-                if hasattr(self, '_colunas_ler'):
-                    delattr(self, '_colunas_ler')
-                return True
-            else:
-                logger.error("Nenhum chunk foi processado com sucesso")
-                # Limpar mapeamento de colunas mesmo em caso de falha
-                if hasattr(self, '_mapeamento_colunas'):
-                    delattr(self, '_mapeamento_colunas')
-                if hasattr(self, '_colunas_removidas'):
-                    delattr(self, '_colunas_removidas')
-                if hasattr(self, '_colunas_ler'):
-                    delattr(self, '_colunas_ler')
-                return False
-                
+            # Limpar atributos temporários
+            if hasattr(self, '_mapeamento_colunas'):
+                delattr(self, '_mapeamento_colunas')
+            
+            logger.info(f"Conversão concluída: {chunks_processados} chunks salvos em {diretorio_destino}")
+            return True
+            
         except Exception as e:
-            logger.error(f"Erro na conversão de {caminho_arquivo_txt}: {e}")
+            logger.error(f"Erro durante a conversão de {caminho_arquivo_txt}: {e}")
+            
+            # Limpar atributos temporários em caso de erro
+            if hasattr(self, '_mapeamento_colunas'):
+                delattr(self, '_mapeamento_colunas')
+            
             return False
     
     def converter_diretorio(self, diretorio_origem: str = "files-unzip", ano: Optional[int] = None, consolidar: bool = False) -> Dict[str, Any]:

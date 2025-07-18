@@ -20,16 +20,18 @@ class PipelineParalelo:
     Permite que download, descompactação e conversão sejam executados simultaneamente.
     """
     
-    def __init__(self, max_workers: Optional[int] = None, chunk_size: Optional[int] = None):
+    def __init__(self, max_workers: Optional[int] = None, chunk_size: Optional[int] = None, campos_especificos: Optional[List[str]] = None):
         """
         Inicializa o pipeline paralelo.
         
         Args:
             max_workers: Número máximo de workers para processamento paralelo
             chunk_size: Tamanho do chunk para conversão
+            campos_especificos: Lista de campos específicos a serem incluídos na conversão
         """
         self.max_workers = max_workers or 4
         self.chunk_size = chunk_size
+        self.campos_especificos = campos_especificos
         
         # Filas para comunicação entre etapas
         self.fila_download = Queue()
@@ -92,7 +94,7 @@ class PipelineParalelo:
         )
         
         descompactador = DescompactadorArquivos(max_workers=self.max_workers)
-        conversor = ConversorParquet(chunk_size=self.chunk_size, max_workers=self.max_workers)
+        conversor = ConversorParquet(chunk_size=self.chunk_size, max_workers=self.max_workers, campos_especificos=self.campos_especificos)
         
         # Iniciar workers em threads separadas
         with ThreadPoolExecutor(max_workers=3) as executor:
@@ -148,7 +150,7 @@ class PipelineParalelo:
         
         # Inicializar componentes
         descompactador = DescompactadorArquivos(max_workers=self.max_workers)
-        conversor = ConversorParquet(chunk_size=self.chunk_size, max_workers=self.max_workers)
+        conversor = ConversorParquet(chunk_size=self.chunk_size, max_workers=self.max_workers, campos_especificos=self.campos_especificos)
         
         # Marcar download como já finalizado (não há download)
         self.download_finalizado = True
@@ -347,7 +349,7 @@ class PipelineParalelo:
         logger.info("Iniciando pipeline de apenas conversão")
         
         # Inicializar conversor
-        conversor = ConversorParquet(chunk_size=self.chunk_size, max_workers=self.max_workers)
+        conversor = ConversorParquet(chunk_size=self.chunk_size, max_workers=self.max_workers, campos_especificos=self.campos_especificos)
         
         # Executar conversão
         resultado_conversao = conversor.converter_diretorio("files-unzip", ano=ano, consolidar=consolidar)
@@ -373,7 +375,7 @@ class PipelineParalelo:
         logger.info(f"Iniciando consolidação de arquivos do ano {ano}")
         
         # Inicializar conversor para usar seus métodos de consolidação
-        conversor = ConversorParquet(chunk_size=self.chunk_size, max_workers=self.max_workers)
+        conversor = ConversorParquet(chunk_size=self.chunk_size, max_workers=self.max_workers, campos_especificos=self.campos_especificos)
         
         try:
             # Executar consolidação
@@ -451,11 +453,50 @@ class PipelineParalelo:
             
             logger.info(f"Encontrados {len(nomes_arquivos)} arquivos para download")
             
-            # Processar downloads em paralelo
+            # Verificar quais arquivos precisam ser baixados
+            arquivos_para_baixar = []
+            ftp = gerenciador._conectar_ftp()
+            
+            if ftp:
+                try:
+                    logger.info("Verificando arquivos que precisam ser baixados...")
+                    for nome_arquivo in nomes_arquivos:
+                        # Obter informações detalhadas do arquivo remoto
+                        info_remoto = gerenciador._verificar_arquivo_remoto(ftp, nome_arquivo)
+                        
+                        # Verificar se o arquivo precisa ser baixado
+                        if gerenciador._arquivo_precisa_baixar(nome_arquivo, info_remoto):
+                            arquivos_para_baixar.append(nome_arquivo)
+                        else:
+                            # Arquivo já existe e está atualizado, marcar como concluído
+                            with self.lock:
+                                self.stats['download']['concluidos'] += 1
+                            self._marcar_etapa_concluida(nome_arquivo, 'download')
+                            self.fila_descompactacao.put(nome_arquivo)
+                            logger.debug(f"Arquivo {nome_arquivo} já existe e está atualizado, pulando download")
+                    
+                    logger.info(f"Verificação concluída: {len(arquivos_para_baixar)} de {len(nomes_arquivos)} arquivos precisam ser baixados")
+                    
+                finally:
+                    try:
+                        ftp.quit()
+                    except:
+                        pass
+            else:
+                logger.error("Não foi possível conectar ao FTP para verificação, baixando todos os arquivos")
+                arquivos_para_baixar = nomes_arquivos
+            
+            # Se não há arquivos para baixar, finalizar
+            if not arquivos_para_baixar:
+                logger.info("Todos os arquivos estão atualizados!")
+                self.download_finalizado = True
+                return
+            
+            # Processar downloads em paralelo apenas dos arquivos que precisam
             with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
                 futures = []
                 
-                for nome_arquivo in nomes_arquivos:
+                for nome_arquivo in arquivos_para_baixar:
                     future = executor.submit(self._download_arquivo, gerenciador, nome_arquivo)
                     futures.append(future)
                 

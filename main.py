@@ -64,7 +64,7 @@ def criar_parser_argumentos() -> argparse.ArgumentParser:
         ArgumentParser configurado
     """
     parser = argparse.ArgumentParser(
-        description="Gerenciador de arquivos para dados RAIS - Download, descompactação e conversão para Parquet",
+        description="Gerenciador de arquivos para dados RAIS - Download, descompactação, conversão para Parquet e exportação de campos específicos",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Exemplos de uso:
@@ -100,6 +100,12 @@ Exemplos de uso:
 
   # Pipeline paralelo (máxima eficiência):
   python main.py --converter --ano 2024 --consolidacao
+
+  # Converter apenas campos específicos:
+  python main.py --converter --ano 2024 --campos CNAE_2_0_CLASSE VINCULO_ATIVO_31_12 MUNICIPIO
+
+  # Converter apenas campos específicos de todos os anos:
+  python main.py --converter --campos CNAE_2_0_CLASSE VINCULO_ATIVO_31_12 MUNICIPIO
         """
     )
     
@@ -196,6 +202,15 @@ Exemplos de uso:
         help="Consolidar todos os arquivos de um ano em um único arquivo RAIS_ANO.parquet após a conversão"
     )
     
+    # Argumentos para filtro de campos durante conversão
+    parser.add_argument(
+        "--campos",
+        type=str,
+        nargs='+',
+        metavar='CAMPO',
+        help="Campos específicos a serem incluídos na conversão (ex: CNAE_2_0_CLASSE VINCULO_ATIVO_31_12 MUNICIPIO)"
+    )
+    
     return parser
 
 
@@ -278,7 +293,8 @@ def main():
                 # Criar pipeline paralelo
                 pipeline = PipelineParalelo(
                     max_workers=args.max_workers,
-                    chunk_size=args.chunk_size
+                    chunk_size=args.chunk_size,
+                    campos_especificos=args.campos
                 )
                 
                 # Executar apenas download
@@ -344,7 +360,8 @@ def main():
                 # Criar pipeline paralelo
                 pipeline = PipelineParalelo(
                     max_workers=args.max_workers,
-                    chunk_size=args.chunk_size
+                    chunk_size=args.chunk_size,
+                    campos_especificos=args.campos
                 )
                 
                 # Executar download e descompactação
@@ -392,7 +409,8 @@ def main():
                 # Criar pipeline paralelo
                 pipeline = PipelineParalelo(
                     max_workers=args.max_workers,
-                    chunk_size=args.chunk_size
+                    chunk_size=args.chunk_size,
+                    campos_especificos=args.campos
                 )
                 
                 # Executar apenas descompactação
@@ -439,7 +457,8 @@ def main():
                 # Criar pipeline paralelo
                 pipeline = PipelineParalelo(
                     max_workers=args.max_workers,
-                    chunk_size=args.chunk_size
+                    chunk_size=args.chunk_size,
+                    campos_especificos=args.campos
                 )
                 
                 # Executar pipeline
@@ -478,7 +497,8 @@ def main():
                 # Criar pipeline paralelo
                 pipeline = PipelineParalelo(
                     max_workers=args.max_workers,
-                    chunk_size=args.chunk_size
+                    chunk_size=args.chunk_size,
+                    campos_especificos=args.campos
                 )
                 
                 # Executar apenas conversão
@@ -520,7 +540,8 @@ def main():
                 # Criar pipeline paralelo
                 pipeline = PipelineParalelo(
                     max_workers=args.max_workers,
-                    chunk_size=args.chunk_size
+                    chunk_size=args.chunk_size,
+                    campos_especificos=args.campos
                 )
                 
                 # Executar pipeline (sem download)
@@ -554,7 +575,8 @@ def main():
                 # Criar pipeline paralelo para usar seu método de consolidação
                 pipeline = PipelineParalelo(
                     max_workers=args.max_workers,
-                    chunk_size=args.chunk_size
+                    chunk_size=args.chunk_size,
+                    campos_especificos=args.campos
                 )
                 
                 # Executar apenas a consolidação
