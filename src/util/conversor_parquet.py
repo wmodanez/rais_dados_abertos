@@ -562,7 +562,7 @@ class ConversorParquet:
     
     def consolidar_arquivos_ano(self, ano: int) -> None:
         """
-        Consolida todos os chunks de cada arquivo em um único arquivo Parquet.
+        Consolida todos os arquivos de um ano em um único arquivo RAIS_ANO.parquet.
         Remove as subpastas após a consolidação.
         
         Args:
@@ -573,7 +573,7 @@ class ConversorParquet:
             logger.warning(f"Diretório do ano {ano} não encontrado: {diretorio_ano}")
             return
         
-        logger.info(f"Consolidando arquivos do ano {ano}")
+        logger.info(f"Consolidando todos os arquivos do ano {ano} em um único arquivo RAIS_{ano}.parquet")
         
         # Encontrar todas as subpastas (cada uma representa um arquivo)
         subpastas = [d for d in diretorio_ano.iterdir() if d.is_dir()]
@@ -584,65 +584,18 @@ class ConversorParquet:
         
         logger.info(f"Encontradas {len(subpastas)} subpastas para consolidar")
         
-        consolidados = 0
-        falhas = 0
+        # Coletar todos os chunks de todas as subpastas
+        todos_chunks = []
+        for subpasta in subpastas:
+            chunks = sorted(subpasta.glob("*.parquet"))
+            todos_chunks.extend(chunks)
+            logger.info(f"Encontrados {len(chunks)} chunks em {subpasta.name}")
         
-        # Barra de progresso para consolidação
-        with tqdm(
-            total=len(subpastas),
-            desc="Consolidando arquivos",
-            unit="arquivo",
-            position=0,
-            leave=True
-        ) as pbar:
-            
-            # Consolidar arquivos em paralelo
-            with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
-                # Submeter todas as consolidações
-                future_to_subpasta = {
-                    executor.submit(self.consolidar_arquivo, subpasta, diretorio_ano): subpasta 
-                    for subpasta in subpastas
-                }
-                
-                # Processar resultados conforme completam
-                for future in as_completed(future_to_subpasta):
-                    subpasta = future_to_subpasta[future]
-                    try:
-                        sucesso = future.result()
-                        if sucesso:
-                            consolidados += 1
-                        else:
-                            falhas += 1
-                    except Exception as e:
-                        logger.error(f"Erro ao consolidar {subpasta}: {e}")
-                        falhas += 1
-                    
-                    pbar.update(1)
+        if not todos_chunks:
+            logger.warning(f"Nenhum chunk encontrado em nenhuma subpasta")
+            return
         
-        logger.info(f"Consolidação concluída: {consolidados} consolidados, {falhas} falhas")
-    
-    def consolidar_arquivo(self, subpasta: Path, diretorio_ano: Path) -> bool:
-        """
-        Consolida todos os chunks de um arquivo em um único arquivo Parquet.
-        Remove a subpasta após a consolidação.
-        
-        Args:
-            subpasta: Caminho da subpasta com os chunks
-            diretorio_ano: Diretório do ano (pasta pai)
-            
-        Returns:
-            True se a consolidação foi bem-sucedida, False caso contrário
-        """
-        nome_arquivo = subpasta.name
-        
-        # Encontrar todos os chunks da subpasta
-        chunks = sorted(subpasta.glob("*.parquet"))
-        
-        if not chunks:
-            logger.warning(f"Nenhum chunk encontrado em {subpasta}")
-            return False
-        
-        logger.info(f"Consolidando {len(chunks)} chunks de {nome_arquivo}")
+        logger.info(f"Total de chunks a consolidar: {len(todos_chunks)}")
         
         try:
             # Função para ler um chunk individual
@@ -661,22 +614,22 @@ class ConversorParquet:
                     logger.error(f"Erro ao ler chunk {chunk}: {e}")
                     return None
             
-            # Ler chunks em paralelo
+            # Ler todos os chunks em paralelo
             dataframes = []
             
             with tqdm(
-                total=len(chunks),
-                desc=f"Lendo chunks de {nome_arquivo}",
+                total=len(todos_chunks),
+                desc=f"Lendo todos os chunks do ano {ano}",
                 unit="chunk",
-                position=1,
-                leave=False
+                position=0,
+                leave=True
             ) as pbar_chunks:
                 
                 with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
                     # Submeter todos os chunks para leitura
                     future_to_chunk = {
                         executor.submit(ler_chunk, chunk): chunk 
-                        for chunk in chunks
+                        for chunk in todos_chunks
                     }
                     
                     # Processar resultados conforme completam
@@ -692,16 +645,16 @@ class ConversorParquet:
                             pbar_chunks.update(1)
             
             if not dataframes:
-                logger.error(f"Nenhum chunk foi lido com sucesso para {nome_arquivo}")
-                return False
+                logger.error(f"Nenhum chunk foi lido com sucesso para o ano {ano}")
+                return
             
             # Concatenar todos os dataframes
-            logger.info(f"Concatenando {len(dataframes)} dataframes de {nome_arquivo}")
+            logger.info(f"Concatenando {len(dataframes)} dataframes do ano {ano}")
             df_consolidado = pl.concat(dataframes)
             
-            # Salvar arquivo consolidado
-            arquivo_consolidado = diretorio_ano / f"{nome_arquivo}.parquet"
-            logger.info(f"Salvando arquivo consolidado: {arquivo_consolidado}")
+            # Salvar arquivo consolidado único
+            arquivo_consolidado = diretorio_ano / f"RAIS_{ano}.parquet"
+            logger.info(f"Salvando arquivo consolidado único: {arquivo_consolidado}")
             df_consolidado.write_parquet(str(arquivo_consolidado), compression="snappy")
             
             # Verificar se o arquivo foi criado
@@ -709,16 +662,21 @@ class ConversorParquet:
                 tamanho_mb = arquivo_consolidado.stat().st_size / (1024 * 1024)
                 logger.info(f"Arquivo consolidado criado: {arquivo_consolidado} ({tamanho_mb:.2f} MB, {df_consolidado.height} linhas)")
                 
-                # Remover subpasta com os chunks
-                logger.info(f"Removendo subpasta: {subpasta}")
+                # Remover todas as subpastas com os chunks
+                logger.info(f"Removendo {len(subpastas)} subpastas com chunks")
                 import shutil
-                shutil.rmtree(subpasta)
+                for subpasta in subpastas:
+                    try:
+                        shutil.rmtree(subpasta)
+                        logger.debug(f"Subpasta removida: {subpasta}")
+                    except Exception as e:
+                        logger.error(f"Erro ao remover subpasta {subpasta}: {e}")
                 
-                return True
+                logger.info(f"Consolidação concluída com sucesso: {len(dataframes)} chunks consolidados em RAIS_{ano}.parquet")
             else:
                 logger.error(f"Arquivo consolidado não foi criado: {arquivo_consolidado}")
-                return False
                 
         except Exception as e:
-            logger.error(f"Erro na consolidação de {nome_arquivo}: {e}")
-            return False 
+            logger.error(f"Erro na consolidação do ano {ano}: {e}")
+    
+ 
