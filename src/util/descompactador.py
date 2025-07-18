@@ -36,10 +36,13 @@ class DescompactadorArquivos:
         """
         Retorna o caminho de destino para o arquivo descompactado, respeitando a estrutura files-unzip/ANO/
         """
-        # Extrair o ano do caminho do arquivo zip
-        ano = self._extrair_ano_arquivo(str(caminho_arquivo_zip))
-        if not ano:
-            ano = "desconhecido"
+        # Extrair o ano do caminho do arquivo zip (pasta pai)
+        ano = "desconhecido"
+        for parte in caminho_arquivo_zip.parts:
+            if re.match(r"^(20\d{2})$", parte):
+                ano = parte
+                break
+        
         return Path("files-unzip") / ano
     
     def descompactar_arquivo(self, caminho_arquivo_zip: Path) -> bool:
@@ -97,9 +100,6 @@ class DescompactadorArquivos:
         diretorio_zip.mkdir(exist_ok=True)
         
         try:
-            # Listar todos os arquivos .7z
-            todos_arquivos = list(diretorio_zip.glob("**/*.7z"))
-            
             # Aplicar filtros de ano se especificados
             if ano is not None or ano_inicio is not None or ano_fim is not None:
                 anos_validos = set()
@@ -112,17 +112,18 @@ class DescompactadorArquivos:
                     # Ano inicial até o último disponível
                     anos_validos = set(str(a) for a in range(ano_inicio, 2100))  # 2100: limite arbitrário
                 
-                # Filtrar arquivos por ano
-                for arquivo in todos_arquivos:
-                    ano_arquivo = self._extrair_ano_arquivo(arquivo.name)
-                    if ano_arquivo and ano_arquivo in anos_validos:
-                        arquivos_zip.append(arquivo)
-                        logger.debug(f"Arquivo incluído no filtro: {arquivo.name} (ano: {ano_arquivo})")
-                    else:
-                        logger.debug(f"Arquivo excluído do filtro: {arquivo.name} (ano extraído: {ano_arquivo})")
+                # Para cada ano válido, listar todos os arquivos .7z dentro da pasta do ano
+                for ano_str in anos_validos:
+                    pasta_ano = diretorio_zip / ano_str
+                    if pasta_ano.exists() and pasta_ano.is_dir():
+                        arquivos_do_ano = list(pasta_ano.glob("*.7z"))
+                        arquivos_zip.extend(arquivos_do_ano)
+                        logger.debug(f"Encontrados {len(arquivos_do_ano)} arquivos .7z na pasta {ano_str}/")
+                        for arquivo in arquivos_do_ano:
+                            logger.debug(f"Arquivo incluído no filtro: {arquivo.name} (pasta: {ano_str})")
             else:
-                # Sem filtro de ano, incluir todos
-                arquivos_zip = todos_arquivos
+                # Sem filtro de ano, incluir todos os arquivos .7z em qualquer pasta
+                arquivos_zip = list(diretorio_zip.glob("**/*.7z"))
             
             logger.info(f"Encontrados {len(arquivos_zip)} arquivos .7z para descompactar (filtro: ano={ano}, ano_inicio={ano_inicio}, ano_fim={ano_fim})")
             return arquivos_zip
