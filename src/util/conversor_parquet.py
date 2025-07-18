@@ -9,6 +9,9 @@ import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import multiprocessing
 
+# Importar funções de padronização de colunas
+from .utilitarios import padronizar_colunas_dataframe
+
 # Configuração de logging
 logger = logging.getLogger("conversor_parquet")
 
@@ -52,7 +55,7 @@ class ConversorParquet:
         """
         # Obter número de CPUs físicos e lógicos
         cpus_fisicos = multiprocessing.cpu_count()
-        cpus_logicos = os.cpu_count()
+        cpus_logicos = os.cpu_count() or multiprocessing.cpu_count()
         
         # Estratégia: usar 75% dos cores lógicos, mas não menos que 2 nem mais que 16
         workers_sugeridos = max(2, min(16, int(cpus_logicos * 0.75)))
@@ -185,7 +188,7 @@ class ConversorParquet:
                             contadores[separador] += linha.count(separador)
                 
                 # Retornar o separador mais frequente
-                separador_mais_frequente = max(contadores, key=contadores.get)
+                separador_mais_frequente = max(contadores.items(), key=lambda x: x[1])[0]
                 logger.debug(f"Separador detectado: '{separador_mais_frequente}' para {caminho_arquivo}")
                 return separador_mais_frequente
                 
@@ -230,19 +233,29 @@ class ConversorParquet:
                 separator=separador,
                 n_rows=1,
                 encoding=encoding,
-                ignore_errors=True
+                ignore_errors=True,
+                truncate_ragged_lines=True
             )
             
-            # Criar schema com tipos de dados apropriados
+            # Padronizar nomes das colunas
+            mapeamento_colunas = padronizar_colunas_dataframe(df_cabecalho.columns)
+            logger.info(f"Colunas padronizadas para {caminho_arquivo}: {len(mapeamento_colunas)} colunas processadas")
+            
+            # Criar schema com tipos de dados apropriados usando nomes originais
+            # (o Polars precisa ler com os nomes originais)
             schema = {}
-            for coluna in df_cabecalho.columns:
-                # Para arquivos RAIS, usar tipos apropriados
-                if any(palavra in coluna.upper() for palavra in ['ANO', 'MES', 'DIA', 'ID']):
-                    schema[coluna] = pl.Int64
-                elif any(palavra in coluna.upper() for palavra in ['VALOR', 'SALARIO', 'REMUNERACAO']):
-                    schema[coluna] = pl.Float64
+            for coluna_original in df_cabecalho.columns:
+                coluna_padronizada = mapeamento_colunas[coluna_original]
+                # Para arquivos RAIS, usar tipos apropriados baseado no nome padronizado
+                if any(palavra in coluna_padronizada for palavra in ['ANO', 'MES', 'DIA', 'ID']):
+                    schema[coluna_original] = pl.Int64
+                elif any(palavra in coluna_padronizada for palavra in ['VALOR', 'SALARIO', 'REMUNERACAO']):
+                    schema[coluna_original] = pl.Float64
                 else:
-                    schema[coluna] = pl.Utf8
+                    schema[coluna_original] = pl.Utf8
+            
+            # Armazenar mapeamento para uso posterior
+            self._mapeamento_colunas = mapeamento_colunas
             
             logger.debug(f"Schema criado com {len(schema)} colunas para {caminho_arquivo}")
             return schema
@@ -306,6 +319,18 @@ class ConversorParquet:
                 logger.error(f"Não foi possível criar schema para {caminho_arquivo_txt}")
                 return False
             
+            # Definir colunas a remover
+            colunas_remover = [
+                'Bairros SP',
+                'Bairros Fortaleza',
+                'Bairros RJ',
+                'Distritos SP',
+                'Regiões Adm DF'
+            ]
+            
+            # Armazenar lista de colunas removidas para uso posterior
+            self._colunas_removidas = colunas_remover
+            
             # Obter chunk size (fixo ou calculado)
             if self.chunk_size_fixo is None:
                 chunk_size = self._obter_chunk_size_padrao(caminho_arquivo_txt.stat().st_size)
@@ -319,23 +344,60 @@ class ConversorParquet:
             
             logger.info(f"Processando {total_linhas} linhas em {num_chunks} chunks com {self.max_workers} workers")
             
+            # Ler arquivo completo uma vez e aplicar transformações
+            logger.info("Lendo arquivo completo e aplicando transformações...")
+            df_completo = pl.read_csv(
+                caminho_arquivo_txt,
+                separator=separador,
+                encoding=encoding,
+                ignore_errors=True,
+                truncate_ragged_lines=True
+            )
+            
+            # Remover colunas desejadas ANTES de renomear (apenas as que existem)
+            if self._colunas_removidas:
+                colunas_existentes = [col for col in self._colunas_removidas if col in df_completo.columns]
+                if colunas_existentes:
+                    df_completo = df_completo.drop(colunas_existentes)
+                    logger.info(f"Colunas removidas: {colunas_existentes}")
+                else:
+                    logger.info("Nenhuma das colunas especificadas foi encontrada no arquivo")
+            
+            # Aplicar mapeamento de colunas para renomear
+            if hasattr(self, '_mapeamento_colunas') and self._mapeamento_colunas:
+                # Verificar se todas as colunas do mapeamento existem no DataFrame
+                colunas_mapeamento = list(self._mapeamento_colunas.keys())
+                colunas_existentes = [col for col in colunas_mapeamento if col in df_completo.columns]
+                colunas_inexistentes = [col for col in colunas_mapeamento if col not in df_completo.columns]
+                
+                if colunas_inexistentes:
+                    logger.warning(f"Colunas não encontradas no arquivo: {colunas_inexistentes}")
+                
+                # Criar mapeamento apenas com colunas existentes
+                mapeamento_filtrado = {k: v for k, v in self._mapeamento_colunas.items() if k in df_completo.columns}
+                
+                if mapeamento_filtrado:
+                    df_completo = df_completo.rename(mapeamento_filtrado)
+                    logger.info(f"Colunas renomeadas com sucesso: {len(mapeamento_filtrado)} colunas")
+                else:
+                    logger.warning("Nenhuma coluna foi renomeada")
+            
+            # Adicionar coluna ANO
+            df_completo = df_completo.with_columns([
+                pl.lit(ano).alias('ANO')
+            ])
+            logger.info("Coluna ANO adicionada")
+            
             chunks_processados = 0
             
             # Função para processar um chunk individual
             def processar_chunk(chunk_idx: int) -> bool:
-                offset = chunk_idx * chunk_size
+                start_idx = chunk_idx * chunk_size
+                end_idx = min(start_idx + chunk_size, df_completo.height)
                 
                 try:
-                    # Ler chunk
-                    df_chunk = pl.read_csv(
-                        caminho_arquivo_txt,
-                        separator=separador,
-                        skip_rows=offset + 1,  # +1 para pular cabeçalho
-                        n_rows=chunk_size,
-                        encoding=encoding,
-                        ignore_errors=True,
-                        schema=schema
-                    )
+                    # Extrair chunk do DataFrame já processado
+                    df_chunk = df_completo.slice(start_idx, end_idx - start_idx)
                     
                     if df_chunk.height == 0:
                         logger.debug(f"Chunk {chunk_idx} vazio, pulando...")
@@ -385,9 +447,23 @@ class ConversorParquet:
             # Verificar se pelo menos um chunk foi processado
             if chunks_processados > 0:
                 logger.info(f"Conversão concluída: {chunks_processados} chunks salvos em {diretorio_destino}")
+                # Limpar mapeamento de colunas após processamento
+                if hasattr(self, '_mapeamento_colunas'):
+                    delattr(self, '_mapeamento_colunas')
+                if hasattr(self, '_colunas_removidas'):
+                    delattr(self, '_colunas_removidas')
+                if hasattr(self, '_colunas_ler'):
+                    delattr(self, '_colunas_ler')
                 return True
             else:
                 logger.error("Nenhum chunk foi processado com sucesso")
+                # Limpar mapeamento de colunas mesmo em caso de falha
+                if hasattr(self, '_mapeamento_colunas'):
+                    delattr(self, '_mapeamento_colunas')
+                if hasattr(self, '_colunas_removidas'):
+                    delattr(self, '_colunas_removidas')
+                if hasattr(self, '_colunas_ler'):
+                    delattr(self, '_colunas_ler')
                 return False
                 
         except Exception as e:

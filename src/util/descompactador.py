@@ -78,12 +78,17 @@ class DescompactadorArquivos:
             logger.error(f"Erro ao descompactar {caminho_arquivo_zip}: {e}")
             return False
     
-    def listar_arquivos_zip_locais(self) -> List[Path]:
+    def listar_arquivos_zip_locais(self, ano: Optional[int] = None, ano_inicio: Optional[int] = None, ano_fim: Optional[int] = None) -> List[Path]:
         """
-        Lista todos os arquivos .7z na pasta files-zip.
+        Lista arquivos .7z na pasta files-zip, opcionalmente filtrados por ano.
         
+        Args:
+            ano: Ano específico para filtrar
+            ano_inicio: Ano inicial da faixa
+            ano_fim: Ano final da faixa
+            
         Returns:
-            Lista de caminhos dos arquivos .7z encontrados
+            Lista de caminhos dos arquivos .7z encontrados e filtrados
         """
         arquivos_zip = []
         diretorio_zip = Path("files-zip")
@@ -92,22 +97,49 @@ class DescompactadorArquivos:
         diretorio_zip.mkdir(exist_ok=True)
         
         try:
-            for arquivo in diretorio_zip.glob("**/*.7z"):
-                arquivos_zip.append(arquivo)
+            # Listar todos os arquivos .7z
+            todos_arquivos = list(diretorio_zip.glob("**/*.7z"))
             
-            logger.info(f"Encontrados {len(arquivos_zip)} arquivos .7z para descompactar")
+            # Aplicar filtros de ano se especificados
+            if ano is not None or ano_inicio is not None or ano_fim is not None:
+                anos_validos = set()
+                
+                if ano is not None:
+                    anos_validos.add(str(ano))
+                elif ano_inicio is not None and ano_fim is not None:
+                    anos_validos = set(str(a) for a in range(ano_inicio, ano_fim + 1))
+                elif ano_inicio is not None:
+                    # Ano inicial até o último disponível
+                    anos_validos = set(str(a) for a in range(ano_inicio, 2100))  # 2100: limite arbitrário
+                
+                # Filtrar arquivos por ano
+                for arquivo in todos_arquivos:
+                    ano_arquivo = self._extrair_ano_arquivo(arquivo.name)
+                    if ano_arquivo and ano_arquivo in anos_validos:
+                        arquivos_zip.append(arquivo)
+                        logger.debug(f"Arquivo incluído no filtro: {arquivo.name} (ano: {ano_arquivo})")
+                    else:
+                        logger.debug(f"Arquivo excluído do filtro: {arquivo.name} (ano extraído: {ano_arquivo})")
+            else:
+                # Sem filtro de ano, incluir todos
+                arquivos_zip = todos_arquivos
+            
+            logger.info(f"Encontrados {len(arquivos_zip)} arquivos .7z para descompactar (filtro: ano={ano}, ano_inicio={ano_inicio}, ano_fim={ano_fim})")
             return arquivos_zip
             
         except Exception as e:
             logger.error(f"Erro ao listar arquivos .7z: {e}")
             return []
     
-    def descompactar_arquivos_paralelo(self, max_workers: Optional[int] = None) -> Tuple[int, int, int]:
+    def descompactar_arquivos_paralelo(self, max_workers: Optional[int] = None, ano: Optional[int] = None, ano_inicio: Optional[int] = None, ano_fim: Optional[int] = None) -> Tuple[int, int, int]:
         """
-        Descompacta todos os arquivos .7z de forma paralela.
+        Descompacta arquivos .7z de forma paralela, opcionalmente filtrados por ano.
         
         Args:
             max_workers: Número máximo de workers (usa self.max_workers se None)
+            ano: Ano específico para filtrar
+            ano_inicio: Ano inicial da faixa
+            ano_fim: Ano final da faixa
             
         Returns:
             Tupla com (total de arquivos, arquivos descompactados, falhas)
@@ -117,8 +149,8 @@ class DescompactadorArquivos:
         
         logger.info("Iniciando descompactação paralela de arquivos")
         
-        # Listar arquivos .7z
-        arquivos_zip = self.listar_arquivos_zip_locais()
+        # Listar arquivos .7z com filtros
+        arquivos_zip = self.listar_arquivos_zip_locais(ano, ano_inicio, ano_fim)
         
         if not arquivos_zip:
             logger.info("Nenhum arquivo .7z encontrado para descompactar")

@@ -7,8 +7,7 @@ from pathlib import Path
 from tqdm import tqdm
 
 # Importar as classes do módulo util
-from src.util.descompactador import DescompactadorArquivos
-from src.util.conversor_parquet import ConversorParquet
+from src.util import GerenciadorArquivosFTP, DescompactadorArquivos, ConversorParquet, MedidorTempo
 
 
 def configurar_logging(nivel_log: str = "INFO") -> logging.Logger:
@@ -69,6 +68,10 @@ def criar_parser_argumentos() -> argparse.ArgumentParser:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Exemplos de uso:
+  # Processamento completo (recomendado):
+  python main.py --processar-tudo --ano 2024
+  python main.py --processar-tudo --faixa-anos 2020 2024
+  
   # Trabalhar localmente (sem acessar servidor FTP):
   python main.py --apenas-descompactar
   python main.py --apenas-converter-parquet --ano 2024
@@ -182,6 +185,12 @@ Exemplos de uso:
     )
     
     parser.add_argument(
+        "--processar-tudo",
+        action="store_true",
+        help="Executar todas as operações: sincronizar, descompactar e converter para Parquet"
+    )
+    
+    parser.add_argument(
         "--chunk-size",
         type=int,
         default=None,
@@ -206,6 +215,10 @@ def main():
     comando_executado = " ".join(sys.argv)
     logger.info(f"Comando executado: {comando_executado}")
     
+    # Inicializar medidor de tempo
+    medidor = MedidorTempo("Processamento RAIS")
+    medidor.iniciar_processo()
+    
     try:
         # Verificar se alguma ação foi especificada
         acoes_especificadas = any([
@@ -213,7 +226,8 @@ def main():
             args.listar_arquivos,
             args.sincronizar,
             args.apenas_descompactar,
-            args.apenas_converter_parquet
+            args.apenas_converter_parquet,
+            args.processar_tudo
         ])
         
         if not acoes_especificadas:
@@ -221,12 +235,9 @@ def main():
             parser.print_help()
             return
         
-        # Criar instância do gerenciador apenas se necessário
+        # Criar instância do gerenciador se necessário para operações FTP
         gerenciador = None
-        if any([args.listar_diretorios, args.listar_arquivos, args.sincronizar]):
-            # Importar apenas quando necessário para evitar conexão desnecessária
-            from src.util.gerenciador_ftp import GerenciadorArquivosFTP
-            
+        if any([args.listar_diretorios, args.listar_arquivos, args.sincronizar, args.processar_tudo]):
             gerenciador = GerenciadorArquivosFTP(
                 servidor_ftp=args.servidor,
                 diretorio_remoto=args.diretorio_remoto,
@@ -244,25 +255,11 @@ def main():
             logger.info(f"  Máx workers: {args.max_workers}")
         
         # Executar ações baseadas nos argumentos
-        if args.listar_diretorios:
-            logger.info("Listando diretórios remotos...")
-            diretorios = gerenciador.listar_diretorios_remotos()
-            print(f"\nDiretórios encontrados ({len(diretorios)}):")
-            for i, diretorio in enumerate(diretorios, 1):
-                print(f"  {i:2d}. {diretorio}")
-        
-        elif args.listar_arquivos:
-            logger.info("Listando arquivos remotos...")
-            arquivos = gerenciador.listar_arquivos_remotos()
-            print(f"\nArquivos encontrados ({len(arquivos)}):")
-            
-            # Barra de progresso para listagem
-            for i, arquivo in enumerate(tqdm(arquivos, desc="Listando arquivos", unit="arquivo"), 1):
-                tamanho_mb = arquivo.get("tamanho", 0) / (1024 * 1024)
-                print(f"  {i:3d}. {arquivo['nome']} ({tamanho_mb:.2f} MB)")
-        
-        elif args.sincronizar:
-            logger.info("Iniciando sincronização de arquivos...")
+        if args.processar_tudo:
+            if gerenciador is None:
+                logger.error("Gerenciador FTP não foi inicializado")
+                return
+            logger.info("Iniciando processamento completo: sincronizar, descompactar e converter...")
             
             # Processar argumentos de faixa de anos
             ano_inicio = None
@@ -280,12 +277,131 @@ def main():
                     logger.error("--faixa-anos deve receber 1 ou 2 valores")
                     sys.exit(1)
             
-            logger.info(f"Filtro de ano: ano={args.ano}, ano_inicio={ano_inicio}, ano_fim={ano_fim}")
-            total, baixados, falhas = gerenciador.sincronizar_arquivos(
-                ano=args.ano,
-                ano_inicio=ano_inicio,
-                ano_fim=ano_fim
-            )
+            # 1. Sincronizar arquivos
+            with medidor.etapa("Sincronização"):
+                logger.info("=== ETAPA 1: Sincronizando arquivos ===")
+                total, baixados, falhas = gerenciador.sincronizar_arquivos(
+                    ano=args.ano,
+                    ano_inicio=ano_inicio,
+                    ano_fim=ano_fim
+                )
+            
+            print(f"\nResultado da sincronização:")
+            print(f"  Total de arquivos: {total}")
+            print(f"  Arquivos baixados: {baixados}")
+            print(f"  Falhas: {falhas}")
+            
+            if falhas > 0:
+                logger.warning(f"Sincronização concluída com {falhas} falhas")
+            else:
+                logger.info("Sincronização concluída com sucesso")
+            
+            # 2. Descompactar arquivos
+            with medidor.etapa("Descompactação"):
+                logger.info("=== ETAPA 2: Descompactando arquivos ===")
+                descompactador = DescompactadorArquivos(max_workers=args.max_workers)
+                total_descompactar, descompactados, falhas_descompactar = descompactador.descompactar_arquivos_paralelo(
+                    ano=args.ano,
+                    ano_inicio=ano_inicio,
+                    ano_fim=ano_fim
+                )
+            
+            print(f"\nResultado da descompactação:")
+            print(f"  Total de arquivos: {total_descompactar}")
+            print(f"  Arquivos descompactados: {descompactados}")
+            print(f"  Falhas: {falhas_descompactar}")
+            
+            if falhas_descompactar > 0:
+                logger.warning(f"Descompactação concluída com {falhas_descompactar} falhas")
+            else:
+                logger.info("Descompactação concluída com sucesso")
+            
+            # 3. Converter para Parquet
+            with medidor.etapa("Conversão para Parquet"):
+                logger.info("=== ETAPA 3: Convertendo para Parquet ===")
+                conversor = ConversorParquet(
+                    chunk_size=args.chunk_size,
+                    max_workers=args.max_workers
+                )
+                
+                # Determinar ano para conversão
+                ano_conversao = args.ano
+                if args.faixa_anos and len(args.faixa_anos) >= 1:
+                    ano_conversao = args.faixa_anos[0]
+                
+                resultado_conversao = conversor.converter_diretorio("files-unzip", ano=ano_conversao)
+            
+            print(f"\nResultado da conversão para Parquet:")
+            print(f"  Total de arquivos: {resultado_conversao['total']}")
+            print(f"  Arquivos convertidos: {resultado_conversao['convertidos']}")
+            print(f"  Falhas: {resultado_conversao['falhas']}")
+            
+            if resultado_conversao['falhas'] > 0:
+                logger.warning(f"Conversão concluída com {resultado_conversao['falhas']} falhas")
+            else:
+                logger.info("Conversão para Parquet concluída com sucesso")
+            
+            # Resumo final
+            print(f"\n{'='*50}")
+            print(f"PROCESSAMENTO COMPLETO FINALIZADO")
+            print(f"{'='*50}")
+            print(f"Download: {baixados}/{total} arquivos")
+            print(f"Descompactação: {descompactados}/{total_descompactar} arquivos")
+            print(f"Conversão: {resultado_conversao['convertidos']}/{resultado_conversao['total']} arquivos")
+            print(f"{'='*50}")
+            
+        elif args.listar_diretorios:
+            if gerenciador is None:
+                logger.error("Gerenciador FTP não foi inicializado")
+                return
+            logger.info("Listando diretórios remotos...")
+            diretorios = gerenciador.listar_diretorios_remotos()
+            print(f"\nDiretórios encontrados ({len(diretorios)}):")
+            for i, diretorio in enumerate(diretorios, 1):
+                print(f"  {i:2d}. {diretorio}")
+        
+        elif args.listar_arquivos:
+            if gerenciador is None:
+                logger.error("Gerenciador FTP não foi inicializado")
+                return
+            logger.info("Listando arquivos remotos...")
+            arquivos = gerenciador.listar_arquivos_remotos()
+            print(f"\nArquivos encontrados ({len(arquivos)}):")
+            
+            # Barra de progresso para listagem
+            for i, arquivo in enumerate(tqdm(arquivos, desc="Listando arquivos", unit="arquivo"), 1):
+                tamanho_mb = arquivo.get("tamanho", 0) / (1024 * 1024)
+                print(f"  {i:3d}. {arquivo['nome']} ({tamanho_mb:.2f} MB)")
+        
+        elif args.sincronizar:
+            if gerenciador is None:
+                logger.error("Gerenciador FTP não foi inicializado")
+                return
+            with medidor.etapa("Sincronização"):
+                logger.info("Iniciando sincronização de arquivos...")
+                
+                # Processar argumentos de faixa de anos
+                ano_inicio = None
+                ano_fim = None
+                if args.faixa_anos:
+                    if len(args.faixa_anos) == 1:
+                        ano_inicio = args.faixa_anos[0]
+                        ano_fim = None  # Até o último disponível
+                        logger.info(f"Faixa de anos: do ano {ano_inicio} até o último disponível")
+                    elif len(args.faixa_anos) == 2:
+                        ano_inicio = args.faixa_anos[0]
+                        ano_fim = args.faixa_anos[1]
+                        logger.info(f"Faixa de anos: do ano {ano_inicio} até {ano_fim}")
+                    else:
+                        logger.error("--faixa-anos deve receber 1 ou 2 valores")
+                        sys.exit(1)
+                
+                logger.info(f"Filtro de ano: ano={args.ano}, ano_inicio={ano_inicio}, ano_fim={ano_fim}")
+                total, baixados, falhas = gerenciador.sincronizar_arquivos(
+                    ano=args.ano,
+                    ano_inicio=ano_inicio,
+                    ano_fim=ano_fim
+                )
             
             print(f"\nResultado da sincronização:")
             print(f"  Total de arquivos: {total}")
@@ -301,7 +417,11 @@ def main():
             if args.descompactar:
                 logger.info("Iniciando descompactação de arquivos...")
                 descompactador = DescompactadorArquivos(max_workers=args.max_workers)
-                total_descompactar, descompactados, falhas_descompactar = descompactador.descompactar_arquivos_paralelo()
+                total_descompactar, descompactados, falhas_descompactar = descompactador.descompactar_arquivos_paralelo(
+                    ano=args.ano,
+                    ano_inicio=ano_inicio,
+                    ano_fim=ano_fim
+                )
                 
                 print(f"\nResultado da descompactação:")
                 print(f"  Total de arquivos: {total_descompactar}")
@@ -339,9 +459,33 @@ def main():
                     logger.info("Conversão para Parquet concluída com sucesso")
         
         elif args.apenas_descompactar:
-            logger.info("Iniciando apenas descompactação de arquivos...")
-            descompactador = DescompactadorArquivos(max_workers=args.max_workers)
-            total_descompactar, descompactados, falhas_descompactar = descompactador.descompactar_arquivos_paralelo()
+            with medidor.etapa("Descompactação"):
+                logger.info("Iniciando apenas descompactação de arquivos...")
+                
+                # Processar argumentos de faixa de anos
+                ano_inicio = None
+                ano_fim = None
+                if args.faixa_anos:
+                    if len(args.faixa_anos) == 1:
+                        ano_inicio = args.faixa_anos[0]
+                        ano_fim = None  # Até o último disponível
+                        logger.info(f"Faixa de anos: do ano {ano_inicio} até o último disponível")
+                    elif len(args.faixa_anos) == 2:
+                        ano_inicio = args.faixa_anos[0]
+                        ano_fim = args.faixa_anos[1]
+                        logger.info(f"Faixa de anos: do ano {ano_inicio} até {ano_fim}")
+                    else:
+                        logger.error("--faixa-anos deve receber 1 ou 2 valores")
+                        sys.exit(1)
+                
+                logger.info(f"Filtro de ano para descompactação: ano={args.ano}, ano_inicio={ano_inicio}, ano_fim={ano_fim}")
+                
+                descompactador = DescompactadorArquivos(max_workers=args.max_workers)
+                total_descompactar, descompactados, falhas_descompactar = descompactador.descompactar_arquivos_paralelo(
+                    ano=args.ano,
+                    ano_inicio=ano_inicio,
+                    ano_fim=ano_fim
+                )
             
             print(f"\nResultado da descompactação:")
             print(f"  Total de arquivos: {total_descompactar}")
@@ -354,18 +498,19 @@ def main():
                 logger.info("Descompactação concluída com sucesso")
         
         elif args.apenas_converter_parquet:
-            logger.info("Iniciando apenas conversão para Parquet...")
-            conversor = ConversorParquet(
-                chunk_size=args.chunk_size,
-                max_workers=args.max_workers
-            )
-            
-            # Determinar ano para conversão
-            ano_conversao = args.ano
-            if args.faixa_anos and len(args.faixa_anos) >= 1:
-                ano_conversao = args.faixa_anos[0]
-            
-            resultado_conversao = conversor.converter_diretorio("files-unzip", ano=ano_conversao)
+            with medidor.etapa("Conversão para Parquet"):
+                logger.info("Iniciando apenas conversão para Parquet...")
+                conversor = ConversorParquet(
+                    chunk_size=args.chunk_size,
+                    max_workers=args.max_workers
+                )
+                
+                # Determinar ano para conversão
+                ano_conversao = args.ano
+                if args.faixa_anos and len(args.faixa_anos) >= 1:
+                    ano_conversao = args.faixa_anos[0]
+                
+                resultado_conversao = conversor.converter_diretorio("files-unzip", ano=ano_conversao)
             
             print(f"\nResultado da conversão para Parquet:")
             print(f"  Total de arquivos: {resultado_conversao['total']}")
@@ -384,6 +529,10 @@ def main():
         logger.error(f"Erro durante a execução: {e}")
         print(f"\nErro: {e}")
         sys.exit(1)
+    finally:
+        # Finalizar medição de tempo e imprimir resumo
+        medidor.finalizar_processo()
+        medidor.imprimir_resumo()
 
 
 if __name__ == "__main__":
