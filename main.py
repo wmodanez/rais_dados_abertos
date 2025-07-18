@@ -7,7 +7,7 @@ from pathlib import Path
 from tqdm import tqdm
 
 # Importar as classes do módulo util
-from src.util import GerenciadorArquivosFTP, DescompactadorArquivos, ConversorParquet, MedidorTempo
+from src.util import GerenciadorArquivosFTP, DescompactadorArquivos, ConversorParquet, MedidorTempo, PipelineParalelo
 
 
 def configurar_logging(nivel_log: str = "INFO") -> logging.Logger:
@@ -97,6 +97,9 @@ Exemplos de uso:
 
   # Apenas consolidar arquivos já convertidos:
   python main.py --apenas-consolidar --ano 2024
+
+  # Pipeline paralelo (máxima eficiência):
+  python main.py --converter --ano 2024 --consolidacao
         """
     )
     
@@ -253,163 +256,159 @@ def main():
         
         # Executar ações baseadas nos argumentos
         if args.baixar:
-            if gerenciador is None:
-                logger.error("Gerenciador FTP não foi inicializado")
-                return
+            # Processar argumentos de faixa de anos
+            ano_inicio = None
+            ano_fim = None
+            if args.faixa_anos:
+                if len(args.faixa_anos) == 1:
+                    ano_inicio = args.faixa_anos[0]
+                    ano_fim = None  # Até o último disponível
+                    logger.info(f"Faixa de anos: do ano {ano_inicio} até o último disponível")
+                elif len(args.faixa_anos) == 2:
+                    ano_inicio = args.faixa_anos[0]
+                    ano_fim = args.faixa_anos[1]
+                    logger.info(f"Faixa de anos: do ano {ano_inicio} até {ano_fim}")
+                else:
+                    logger.error("--faixa-anos deve receber 1 ou 2 valores")
+                    sys.exit(1)
+            
             with medidor.etapa("Download"):
                 logger.info("Iniciando download de arquivos...")
                 
-                # Processar argumentos de faixa de anos
-                ano_inicio = None
-                ano_fim = None
-                if args.faixa_anos:
-                    if len(args.faixa_anos) == 1:
-                        ano_inicio = args.faixa_anos[0]
-                        ano_fim = None  # Até o último disponível
-                        logger.info(f"Faixa de anos: do ano {ano_inicio} até o último disponível")
-                    elif len(args.faixa_anos) == 2:
-                        ano_inicio = args.faixa_anos[0]
-                        ano_fim = args.faixa_anos[1]
-                        logger.info(f"Faixa de anos: do ano {ano_inicio} até {ano_fim}")
-                    else:
-                        logger.error("--faixa-anos deve receber 1 ou 2 valores")
-                        sys.exit(1)
+                # Criar pipeline paralelo
+                pipeline = PipelineParalelo(
+                    max_workers=args.max_workers,
+                    chunk_size=args.chunk_size
+                )
                 
-                logger.info(f"Filtro de ano: ano={args.ano}, ano_inicio={ano_inicio}, ano_fim={ano_fim}")
-                total, baixados, falhas = gerenciador.sincronizar_arquivos(
+                # Executar apenas download
+                resultado = pipeline.processar_apenas_download(
+                    servidor_ftp=args.servidor,
+                    diretorio_remoto=args.diretorio_remoto,
                     ano=args.ano,
                     ano_inicio=ano_inicio,
-                    ano_fim=ano_fim
+                    ano_fim=ano_fim,
+                    max_tentativas=args.max_tentativas,
+                    tempo_espera=args.tempo_espera
                 )
             
-            print(f"\nResultado da sincronização:")
-            print(f"  Total de arquivos: {total}")
-            print(f"  Arquivos baixados: {baixados}")
-            print(f"  Falhas: {falhas}")
+            print(f"\nResultado do download:")
+            print(f"  Total de arquivos: {resultado['download']['total']}")
+            print(f"  Arquivos baixados: {resultado['download']['concluidos']}")
+            print(f"  Falhas: {resultado['download']['falhas']}")
             
-            if falhas > 0:
-                logger.warning(f"Sincronização concluída com {falhas} falhas")
+            if resultado['download']['falhas'] > 0:
+                logger.warning(f"Download concluído com {resultado['download']['falhas']} falhas")
             else:
-                logger.info("Sincronização concluída com sucesso")
+                logger.info("Download concluído com sucesso")
             
             # Descompactar arquivos se solicitado
             if args.descompactar_apos_baixar:
                 logger.info("Iniciando descompactação de arquivos...")
-                descompactador = DescompactadorArquivos(max_workers=args.max_workers)
-                total_descompactar, descompactados, falhas_descompactar = descompactador.descompactar_arquivos_paralelo(
+                resultado_descompactar = pipeline.processar_apenas_descompactacao(
                     ano=args.ano,
                     ano_inicio=ano_inicio,
                     ano_fim=ano_fim
                 )
                 
                 print(f"\nResultado da descompactação:")
-                print(f"  Total de arquivos: {total_descompactar}")
-                print(f"  Arquivos descompactados: {descompactados}")
-                print(f"  Falhas: {falhas_descompactar}")
+                print(f"  Total de arquivos: {resultado_descompactar['descompactacao']['total']}")
+                print(f"  Arquivos descompactados: {resultado_descompactar['descompactacao']['concluidos']}")
+                print(f"  Falhas: {resultado_descompactar['descompactacao']['falhas']}")
                 
-                if falhas_descompactar > 0:
-                    logger.warning(f"Descompactação concluída com {falhas_descompactar} falhas")
+                if resultado_descompactar['descompactacao']['falhas'] > 0:
+                    logger.warning(f"Descompactação concluída com {resultado_descompactar['descompactacao']['falhas']} falhas")
                 else:
                     logger.info("Descompactação concluída com sucesso")
         
         elif args.descompactar:
-            if gerenciador is None:
-                logger.error("Gerenciador FTP não foi inicializado")
-                return
-            with medidor.etapa("Download"):
-                logger.info("Iniciando download de arquivos...")
+            # Processar argumentos de faixa de anos
+            ano_inicio = None
+            ano_fim = None
+            if args.faixa_anos:
+                if len(args.faixa_anos) == 1:
+                    ano_inicio = args.faixa_anos[0]
+                    ano_fim = None  # Até o último disponível
+                    logger.info(f"Faixa de anos: do ano {ano_inicio} até o último disponível")
+                elif len(args.faixa_anos) == 2:
+                    ano_inicio = args.faixa_anos[0]
+                    ano_fim = args.faixa_anos[1]
+                    logger.info(f"Faixa de anos: do ano {ano_inicio} até {ano_fim}")
+                else:
+                    logger.error("--faixa-anos deve receber 1 ou 2 valores")
+                    sys.exit(1)
+            
+            with medidor.etapa("Pipeline (Download + Descompactação)"):
+                logger.info("Iniciando pipeline: download e descompactação...")
                 
-                # Processar argumentos de faixa de anos
-                ano_inicio = None
-                ano_fim = None
-                if args.faixa_anos:
-                    if len(args.faixa_anos) == 1:
-                        ano_inicio = args.faixa_anos[0]
-                        ano_fim = None  # Até o último disponível
-                        logger.info(f"Faixa de anos: do ano {ano_inicio} até o último disponível")
-                    elif len(args.faixa_anos) == 2:
-                        ano_inicio = args.faixa_anos[0]
-                        ano_fim = args.faixa_anos[1]
-                        logger.info(f"Faixa de anos: do ano {ano_inicio} até {ano_fim}")
-                    else:
-                        logger.error("--faixa-anos deve receber 1 ou 2 valores")
-                        sys.exit(1)
+                # Criar pipeline paralelo
+                pipeline = PipelineParalelo(
+                    max_workers=args.max_workers,
+                    chunk_size=args.chunk_size
+                )
                 
-                logger.info(f"Filtro de ano: ano={args.ano}, ano_inicio={ano_inicio}, ano_fim={ano_fim}")
-                total, baixados, falhas = gerenciador.sincronizar_arquivos(
+                # Executar download e descompactação
+                resultado = pipeline.processar_download_descompactacao(
+                    servidor_ftp=args.servidor,
+                    diretorio_remoto=args.diretorio_remoto,
                     ano=args.ano,
                     ano_inicio=ano_inicio,
-                    ano_fim=ano_fim
+                    ano_fim=ano_fim,
+                    max_tentativas=args.max_tentativas,
+                    tempo_espera=args.tempo_espera
                 )
             
-            print(f"\nResultado da sincronização:")
-            print(f"  Total de arquivos: {total}")
-            print(f"  Arquivos baixados: {baixados}")
-            print(f"  Falhas: {falhas}")
+            print(f"\nResultado do pipeline:")
+            print(f"  Download - Total: {resultado['download']['total']}, Baixados: {resultado['download']['concluidos']}, Falhas: {resultado['download']['falhas']}")
+            print(f"  Descompactação - Total: {resultado['descompactacao']['total']}, Descompactados: {resultado['descompactacao']['concluidos']}, Falhas: {resultado['descompactacao']['falhas']}")
             
-            if falhas > 0:
-                logger.warning(f"Sincronização concluída com {falhas} falhas")
+            # Verificar se houve falhas
+            total_falhas = resultado['download']['falhas'] + resultado['descompactacao']['falhas']
+            if total_falhas > 0:
+                logger.warning(f"Pipeline concluído com {total_falhas} falhas no total")
             else:
-                logger.info("Sincronização concluída com sucesso")
-            
-            # Descompactar arquivos após download
-            with medidor.etapa("Descompactação"):
-                logger.info("Iniciando descompactação de arquivos...")
-                logger.info(f"Filtro de ano para descompactação: ano={args.ano}, ano_inicio={ano_inicio}, ano_fim={ano_fim}")
-                
-                descompactador = DescompactadorArquivos(max_workers=args.max_workers)
-                total_descompactar, descompactados, falhas_descompactar = descompactador.descompactar_arquivos_paralelo(
-                    ano=args.ano,
-                    ano_inicio=ano_inicio,
-                    ano_fim=ano_fim
-                )
-            
-            print(f"\nResultado da descompactação:")
-            print(f"  Total de arquivos: {total_descompactar}")
-            print(f"  Arquivos descompactados: {descompactados}")
-            print(f"  Falhas: {falhas_descompactar}")
-            
-            if falhas_descompactar > 0:
-                logger.warning(f"Descompactação concluída com {falhas_descompactar} falhas")
-            else:
-                logger.info("Descompactação concluída com sucesso")
+                logger.info("Pipeline concluído com sucesso")
         
         elif args.apenas_descompactar:
+            # Processar argumentos de faixa de anos
+            ano_inicio = None
+            ano_fim = None
+            if args.faixa_anos:
+                if len(args.faixa_anos) == 1:
+                    ano_inicio = args.faixa_anos[0]
+                    ano_fim = None  # Até o último disponível
+                    logger.info(f"Faixa de anos: do ano {ano_inicio} até o último disponível")
+                elif len(args.faixa_anos) == 2:
+                    ano_inicio = args.faixa_anos[0]
+                    ano_fim = args.faixa_anos[1]
+                    logger.info(f"Faixa de anos: do ano {ano_inicio} até {ano_fim}")
+                else:
+                    logger.error("--faixa-anos deve receber 1 ou 2 valores")
+                    sys.exit(1)
+            
             with medidor.etapa("Descompactação"):
                 logger.info("Iniciando apenas descompactação de arquivos...")
                 
-                # Processar argumentos de faixa de anos
-                ano_inicio = None
-                ano_fim = None
-                if args.faixa_anos:
-                    if len(args.faixa_anos) == 1:
-                        ano_inicio = args.faixa_anos[0]
-                        ano_fim = None  # Até o último disponível
-                        logger.info(f"Faixa de anos: do ano {ano_inicio} até o último disponível")
-                    elif len(args.faixa_anos) == 2:
-                        ano_inicio = args.faixa_anos[0]
-                        ano_fim = args.faixa_anos[1]
-                        logger.info(f"Faixa de anos: do ano {ano_inicio} até {ano_fim}")
-                    else:
-                        logger.error("--faixa-anos deve receber 1 ou 2 valores")
-                        sys.exit(1)
+                # Criar pipeline paralelo
+                pipeline = PipelineParalelo(
+                    max_workers=args.max_workers,
+                    chunk_size=args.chunk_size
+                )
                 
-                logger.info(f"Filtro de ano para descompactação: ano={args.ano}, ano_inicio={ano_inicio}, ano_fim={ano_fim}")
-                
-                descompactador = DescompactadorArquivos(max_workers=args.max_workers)
-                total_descompactar, descompactados, falhas_descompactar = descompactador.descompactar_arquivos_paralelo(
+                # Executar apenas descompactação
+                resultado = pipeline.processar_apenas_descompactacao(
                     ano=args.ano,
                     ano_inicio=ano_inicio,
                     ano_fim=ano_fim
                 )
             
             print(f"\nResultado da descompactação:")
-            print(f"  Total de arquivos: {total_descompactar}")
-            print(f"  Arquivos descompactados: {descompactados}")
-            print(f"  Falhas: {falhas_descompactar}")
+            print(f"  Total de arquivos: {resultado['descompactacao']['total']}")
+            print(f"  Arquivos descompactados: {resultado['descompactacao']['concluidos']}")
+            print(f"  Falhas: {resultado['descompactacao']['falhas']}")
             
-            if falhas_descompactar > 0:
-                logger.warning(f"Descompactação concluída com {falhas_descompactar} falhas")
+            if resultado['descompactacao']['falhas'] > 0:
+                logger.warning(f"Descompactação concluída com {resultado['descompactacao']['falhas']} falhas")
             else:
                 logger.info("Descompactação concluída com sucesso")
         
@@ -417,105 +416,84 @@ def main():
             if gerenciador is None:
                 logger.error("Gerenciador FTP não foi inicializado")
                 return
-            with medidor.etapa("Download"):
-                logger.info("Iniciando download de arquivos...")
-                
-                # Processar argumentos de faixa de anos
-                ano_inicio = None
-                ano_fim = None
-                if args.faixa_anos:
-                    if len(args.faixa_anos) == 1:
-                        ano_inicio = args.faixa_anos[0]
-                        ano_fim = None  # Até o último disponível
-                        logger.info(f"Faixa de anos: do ano {ano_inicio} até o último disponível")
-                    elif len(args.faixa_anos) == 2:
-                        ano_inicio = args.faixa_anos[0]
-                        ano_fim = args.faixa_anos[1]
-                        logger.info(f"Faixa de anos: do ano {ano_inicio} até {ano_fim}")
-                    else:
-                        logger.error("--faixa-anos deve receber 1 ou 2 valores")
-                        sys.exit(1)
-                
-                logger.info(f"Filtro de ano: ano={args.ano}, ano_inicio={ano_inicio}, ano_fim={ano_fim}")
-                total, baixados, falhas = gerenciador.sincronizar_arquivos(
-                    ano=args.ano,
-                    ano_inicio=ano_inicio,
-                    ano_fim=ano_fim
-                )
             
-            print(f"\nResultado da sincronização:")
-            print(f"  Total de arquivos: {total}")
-            print(f"  Arquivos baixados: {baixados}")
-            print(f"  Falhas: {falhas}")
-            
-            if falhas > 0:
-                logger.warning(f"Sincronização concluída com {falhas} falhas")
-            else:
-                logger.info("Sincronização concluída com sucesso")
-            
-            # Descompactar arquivos após download
-            with medidor.etapa("Descompactação"):
-                logger.info("Iniciando descompactação de arquivos...")
-                logger.info(f"Filtro de ano para descompactação: ano={args.ano}, ano_inicio={ano_inicio}, ano_fim={ano_fim}")
-                
-                descompactador = DescompactadorArquivos(max_workers=args.max_workers)
-                total_descompactar, descompactados, falhas_descompactar = descompactador.descompactar_arquivos_paralelo(
-                    ano=args.ano,
-                    ano_inicio=ano_inicio,
-                    ano_fim=ano_fim
-                )
-            
-            print(f"\nResultado da descompactação:")
-            print(f"  Total de arquivos: {total_descompactar}")
-            print(f"  Arquivos descompactados: {descompactados}")
-            print(f"  Falhas: {falhas_descompactar}")
-            
-            if falhas_descompactar > 0:
-                logger.warning(f"Descompactação concluída com {falhas_descompactar} falhas")
-            else:
-                logger.info("Descompactação concluída com sucesso")
-            
-            # Converter arquivos após descompactação
-            with medidor.etapa("Conversão"):
-                logger.info("Iniciando conversão de arquivos para formato final...")
-                conversor = ConversorParquet(
-                    chunk_size=args.chunk_size,
-                    max_workers=args.max_workers
-                )
-                resultado_conversao = conversor.converter_diretorio("files-unzip", ano=args.ano, consolidar=args.consolidacao)
-                
-                print(f"\nResultado da conversão:")
-                print(f"  Total de arquivos: {resultado_conversao['total']}")
-                print(f"  Arquivos convertidos: {resultado_conversao['convertidos']}")
-                print(f"  Falhas: {resultado_conversao['falhas']}")
-                
-                if resultado_conversao['falhas'] > 0:
-                    logger.warning(f"Conversão concluída com {resultado_conversao['falhas']} falhas")
+            # Processar argumentos de faixa de anos
+            ano_inicio = None
+            ano_fim = None
+            if args.faixa_anos:
+                if len(args.faixa_anos) == 1:
+                    ano_inicio = args.faixa_anos[0]
+                    ano_fim = None  # Até o último disponível
+                    logger.info(f"Faixa de anos: do ano {ano_inicio} até o último disponível")
+                elif len(args.faixa_anos) == 2:
+                    ano_inicio = args.faixa_anos[0]
+                    ano_fim = args.faixa_anos[1]
+                    logger.info(f"Faixa de anos: do ano {ano_inicio} até {ano_fim}")
                 else:
-                    logger.info("Conversão concluída com sucesso")
+                    logger.error("--faixa-anos deve receber 1 ou 2 valores")
+                    sys.exit(1)
+            
+            with medidor.etapa("Pipeline Paralelo (Download + Descompactação + Conversão)"):
+                logger.info("Iniciando pipeline paralelo: download, descompactação e conversão...")
+                
+                # Criar pipeline paralelo
+                pipeline = PipelineParalelo(
+                    max_workers=args.max_workers,
+                    chunk_size=args.chunk_size
+                )
+                
+                # Executar pipeline
+                resultado = pipeline.processar_completo(
+                    servidor_ftp=args.servidor,
+                    diretorio_remoto=args.diretorio_remoto,
+                    ano=args.ano,
+                    ano_inicio=ano_inicio,
+                    ano_fim=ano_fim,
+                    max_tentativas=args.max_tentativas,
+                    tempo_espera=args.tempo_espera,
+                    consolidar=args.consolidacao
+                )
+                
+                print(f"\nResultado do pipeline paralelo:")
+                print(f"  Download - Total: {resultado['download']['total']}, Concluídos: {resultado['download']['concluidos']}, Falhas: {resultado['download']['falhas']}")
+                print(f"  Descompactação - Total: {resultado['descompactacao']['total']}, Concluídos: {resultado['descompactacao']['concluidos']}, Falhas: {resultado['descompactacao']['falhas']}")
+                print(f"  Conversão - Total: {resultado['conversao']['total']}, Concluídos: {resultado['conversao']['concluidos']}, Falhas: {resultado['conversao']['falhas']}")
+                
+                # Verificar se houve falhas
+                total_falhas = resultado['download']['falhas'] + resultado['descompactacao']['falhas'] + resultado['conversao']['falhas']
+                if total_falhas > 0:
+                    logger.warning(f"Pipeline concluído com {total_falhas} falhas no total")
+                else:
+                    logger.info("Pipeline paralelo concluído com sucesso")
         
         elif args.apenas_converter:
+            # Determinar ano para conversão
+            ano_conversao = args.ano
+            if args.faixa_anos and len(args.faixa_anos) >= 1:
+                ano_conversao = args.faixa_anos[0]
+            
             with medidor.etapa("Conversão para Parquet"):
                 logger.info("Iniciando apenas conversão para Parquet...")
-                conversor = ConversorParquet(
-                    chunk_size=args.chunk_size,
-                    max_workers=args.max_workers
+                
+                # Criar pipeline paralelo
+                pipeline = PipelineParalelo(
+                    max_workers=args.max_workers,
+                    chunk_size=args.chunk_size
                 )
                 
-                # Determinar ano para conversão
-                ano_conversao = args.ano
-                if args.faixa_anos and len(args.faixa_anos) >= 1:
-                    ano_conversao = args.faixa_anos[0]
-                
-                resultado_conversao = conversor.converter_diretorio("files-unzip", ano=ano_conversao, consolidar=args.consolidacao)
+                # Executar apenas conversão
+                resultado = pipeline.processar_apenas_conversao(
+                    ano=ano_conversao,
+                    consolidar=args.consolidacao
+                )
             
             print(f"\nResultado da conversão para Parquet:")
-            print(f"  Total de arquivos: {resultado_conversao['total']}")
-            print(f"  Arquivos convertidos: {resultado_conversao['convertidos']}")
-            print(f"  Falhas: {resultado_conversao['falhas']}")
+            print(f"  Total de arquivos: {resultado['conversao']['total']}")
+            print(f"  Arquivos convertidos: {resultado['conversao']['concluidos']}")
+            print(f"  Falhas: {resultado['conversao']['falhas']}")
             
-            if resultado_conversao['falhas'] > 0:
-                logger.warning(f"Conversão concluída com {resultado_conversao['falhas']} falhas")
+            if resultado['conversao']['falhas'] > 0:
+                logger.warning(f"Conversão concluída com {resultado['conversao']['falhas']} falhas")
             else:
                 logger.info("Conversão para Parquet concluída com sucesso")
         
@@ -536,46 +514,33 @@ def main():
                     logger.error("--faixa-anos deve receber 1 ou 2 valores")
                     sys.exit(1)
             
-            # Descompactar arquivos
-            with medidor.etapa("Descompactação"):
-                logger.info("Iniciando descompactação de arquivos...")
-                logger.info(f"Filtro de ano para descompactação: ano={args.ano}, ano_inicio={ano_inicio}, ano_fim={ano_fim}")
+            with medidor.etapa("Pipeline Paralelo (Descompactação + Conversão)"):
+                logger.info("Iniciando pipeline paralelo: descompactação e conversão...")
                 
-                descompactador = DescompactadorArquivos(max_workers=args.max_workers)
-                total_descompactar, descompactados, falhas_descompactar = descompactador.descompactar_arquivos_paralelo(
+                # Criar pipeline paralelo
+                pipeline = PipelineParalelo(
+                    max_workers=args.max_workers,
+                    chunk_size=args.chunk_size
+                )
+                
+                # Executar pipeline (sem download)
+                resultado = pipeline.processar_sem_download(
                     ano=args.ano,
                     ano_inicio=ano_inicio,
-                    ano_fim=ano_fim
+                    ano_fim=ano_fim,
+                    consolidar=args.consolidacao
                 )
-            
-            print(f"\nResultado da descompactação:")
-            print(f"  Total de arquivos: {total_descompactar}")
-            print(f"  Arquivos descompactados: {descompactados}")
-            print(f"  Falhas: {falhas_descompactar}")
-            
-            if falhas_descompactar > 0:
-                logger.warning(f"Descompactação concluída com {falhas_descompactar} falhas")
-            else:
-                logger.info("Descompactação concluída com sucesso")
-            
-            # Converter arquivos
-            with medidor.etapa("Conversão"):
-                logger.info("Iniciando conversão de arquivos para formato final...")
-                conversor = ConversorParquet(
-                    chunk_size=args.chunk_size,
-                    max_workers=args.max_workers
-                )
-                resultado_conversao = conversor.converter_diretorio("files-unzip", ano=args.ano, consolidar=args.consolidacao)
                 
-                print(f"\nResultado da conversão:")
-                print(f"  Total de arquivos: {resultado_conversao['total']}")
-                print(f"  Arquivos convertidos: {resultado_conversao['convertidos']}")
-                print(f"  Falhas: {resultado_conversao['falhas']}")
+                print(f"\nResultado do pipeline paralelo:")
+                print(f"  Descompactação - Total: {resultado['descompactacao']['total']}, Concluídos: {resultado['descompactacao']['concluidos']}, Falhas: {resultado['descompactacao']['falhas']}")
+                print(f"  Conversão - Total: {resultado['conversao']['total']}, Concluídos: {resultado['conversao']['concluidos']}, Falhas: {resultado['conversao']['falhas']}")
                 
-                if resultado_conversao['falhas'] > 0:
-                    logger.warning(f"Conversão concluída com {resultado_conversao['falhas']} falhas")
+                # Verificar se houve falhas
+                total_falhas = resultado['descompactacao']['falhas'] + resultado['conversao']['falhas']
+                if total_falhas > 0:
+                    logger.warning(f"Pipeline concluído com {total_falhas} falhas no total")
                 else:
-                    logger.info("Conversão concluída com sucesso")
+                    logger.info("Pipeline paralelo concluído com sucesso")
         
         elif args.apenas_consolidar:
             # Verificar se o ano foi especificado
@@ -585,19 +550,23 @@ def main():
             
             with medidor.etapa("Consolidação"):
                 logger.info(f"Iniciando apenas consolidação de arquivos do ano {args.ano}...")
-                conversor = ConversorParquet(
-                    chunk_size=args.chunk_size,
-                    max_workers=args.max_workers
+                
+                # Criar pipeline paralelo para usar seu método de consolidação
+                pipeline = PipelineParalelo(
+                    max_workers=args.max_workers,
+                    chunk_size=args.chunk_size
                 )
                 
                 # Executar apenas a consolidação
-                conversor.consolidar_arquivos_ano(args.ano)
+                resultado_consolidacao = pipeline.consolidar_arquivos(args.ano)
                 
-                # Limpar arquivos chunk antigos na raiz
-                conversor.limpar_chunks_antigos(args.ano)
-            
-            print(f"\nConsolidação do ano {args.ano} concluída com sucesso")
-            logger.info("Consolidação concluída com sucesso")
+                if resultado_consolidacao['status'] == 'sucesso':
+                    print(f"\nConsolidação do ano {args.ano} concluída com sucesso")
+                    print(f"  Arquivo consolidado: {resultado_consolidacao['arquivo_consolidado']}")
+                    logger.info("Consolidação concluída com sucesso")
+                else:
+                    print(f"\nErro na consolidação do ano {args.ano}: {resultado_consolidacao['erro']}")
+                    logger.error(f"Erro na consolidação: {resultado_consolidacao['erro']}")
         
     except KeyboardInterrupt:
         logger.info("Operação interrompida pelo usuário")

@@ -81,7 +81,7 @@ class ConversorParquet:
     def _obter_chunk_size_padrao(self, tamanho_arquivo_bytes: int) -> int:
         """
         Retorna o tamanho padrão de chunk baseado no tamanho do arquivo.
-        Usa valores fixos otimizados para arquivos temporários.
+        Usa valores fixos baseados no tamanho do arquivo para balancear memória e performance.
         
         Args:
             tamanho_arquivo_bytes: Tamanho do arquivo em bytes
@@ -91,7 +91,7 @@ class ConversorParquet:
         """
         tamanho_arquivo_gb = tamanho_arquivo_bytes / (1024**3)
         
-        # Valores fixos otimizados para arquivos temporários
+        # Valores fixos baseados no tamanho do arquivo
         if tamanho_arquivo_gb < 1:
             return 50000      # Arquivos pequenos
         elif tamanho_arquivo_gb < 5:

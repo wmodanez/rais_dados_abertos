@@ -214,21 +214,137 @@ class GerenciadorArquivosFTP:
         
         return arquivos
     
-    def listar_arquivos_remotos(self) -> List[Dict[str, Any]]:
+    def _listar_arquivos_diretorio_ftp_por_ano(self, ftp: ftplib.FTP, anos_validos: set) -> List[Dict[str, Any]]:
         """
-        Lista todos os arquivos disponíveis no repositório remoto FTP.
+        Lista arquivos FTP acessando apenas diretórios de anos específicos.
+        Evita listar todos os diretórios quando apenas alguns anos são necessários.
         
+        Args:
+            ftp: Conexão FTP ativa
+            anos_validos: Set com anos válidos (strings)
+            
+        Returns:
+            Lista de dicionários com informações dos arquivos
+        """
+        arquivos = []
+        
+        try:
+            # Navegar para o diretório base
+            ftp.cwd(self.diretorio_remoto)
+        except:
+            logger.error(f"Erro ao acessar diretório base {self.diretorio_remoto}")
+            return []
+        
+        # Listar conteúdo do diretório base
+        itens = []
+        try:
+            ftp.dir(lambda x: itens.append(x))
+        except Exception as e:
+            logger.error(f"Erro ao listar diretório base: {e}")
+            return []
+        
+        logger.debug(f"Processando {len(itens)} itens no diretório base")
+        
+        # Processar apenas diretórios dos anos válidos
+        for item in itens:
+            logger.debug(f"Processando item: {item}")
+            
+            # Verificar se é diretório
+            if '<DIR>' in item:
+                nome = item.rsplit(None, 1)[-1]
+                
+                # Verificar se o nome do diretório é um ano válido
+                if nome in anos_validos:
+                    logger.debug(f"Encontrado diretório do ano válido: {nome}")
+                    
+                    # Listar arquivos apenas deste diretório
+                    try:
+                        # Criar nova conexão FTP para o subdiretório
+                        sub_ftp = self._conectar_ftp()
+                        if sub_ftp:
+                            # Navegar para o diretório do ano
+                            sub_ftp.cwd(f"{self.diretorio_remoto}/{nome}")
+                            
+                            # Listar arquivos do diretório do ano
+                            subitens = []
+                            sub_ftp.dir(lambda x: subitens.append(x))
+                            
+                            # Processar arquivos do diretório
+                            for subitem in subitens:
+                                if '<DIR>' not in subitem:  # Apenas arquivos
+                                    try:
+                                        partes = subitem.split()
+                                        if len(partes) >= 4:
+                                            tamanho_str = partes[2]
+                                            nome_arquivo = " ".join(partes[3:])
+                                            
+                                            # Verificar se o tamanho é numérico
+                                            if tamanho_str.isdigit():
+                                                tamanho = int(tamanho_str)
+                                                caminho_relativo = f"{nome}/{nome_arquivo}"
+                                                
+                                                # Verificar se deve excluir por padrão
+                                                if not self._deve_excluir_arquivo(nome_arquivo):
+                                                    logger.debug(f"Encontrado arquivo: {caminho_relativo} (tamanho: {tamanho})")
+                                                    
+                                                    arquivos.append({
+                                                        "nome": caminho_relativo,
+                                                        "tamanho": tamanho,
+                                                        "tipo": "arquivo"
+                                                    })
+                                                else:
+                                                    logger.debug(f"Arquivo excluído por padrão: {nome_arquivo}")
+                                    except Exception as e:
+                                        logger.debug(f"Erro ao processar arquivo '{subitem}': {e}")
+                                        continue
+                            
+                            sub_ftp.quit()
+                    except Exception as e:
+                        logger.error(f"Erro ao acessar diretório do ano {nome}: {e}")
+                else:
+                    logger.debug(f"Ignorando diretório não relevante: {nome}")
+        
+        return arquivos
+    
+    def listar_arquivos_remotos(self, ano: Optional[int] = None, ano_inicio: Optional[int] = None, ano_fim: Optional[int] = None) -> List[Dict[str, Any]]:
+        """
+        Lista arquivos disponíveis no repositório remoto FTP, com filtro por ano.
+        
+        Args:
+            ano: Ano específico para filtrar
+            ano_inicio: Ano inicial da faixa
+            ano_fim: Ano final da faixa
+            
         Returns:
             Lista de dicionários com informações dos arquivos remotos
         """
-        logger.info(f"Listando arquivos remotos em ftp://{self.servidor_ftp}/{self.diretorio_remoto}")
+        # Determinar anos válidos para filtro
+        anos_validos = set()
+        if ano:
+            anos_validos.add(str(ano))
+        elif ano_inicio and ano_fim:
+            anos_validos = set(str(a) for a in range(ano_inicio, ano_fim + 1))
+        elif ano_inicio:
+            # Ano inicial até o último disponível
+            anos_validos = set(str(a) for a in range(ano_inicio, 2100))  # 2100: limite arbitrário
+        
+        if anos_validos:
+            logger.info(f"Listando arquivos remotos para anos específicos: {sorted(anos_validos)}")
+        else:
+            logger.info(f"Listando todos os arquivos remotos em ftp://{self.servidor_ftp}/{self.diretorio_remoto}")
         
         ftp = self._conectar_ftp()
         if not ftp:
             return []
         
         try:
-            arquivos = self._listar_arquivos_diretorio_ftp(ftp)
+            if anos_validos:
+                # Listagem seletiva: apenas diretórios dos anos específicos
+                arquivos = self._listar_arquivos_diretorio_ftp_por_ano(ftp, anos_validos)
+            else:
+                # Listagem completa: todos os arquivos
+                arquivos = self._listar_arquivos_diretorio_ftp(ftp)
+            
             logger.info(f"Encontrados {len(arquivos)} arquivos remotos")
             return arquivos
         except Exception as e:
@@ -422,8 +538,7 @@ class GerenciadorArquivosFTP:
         logger.info("Iniciando sincronização de arquivos com download paralelo")
         
         # Listar arquivos remotos e locais
-        arquivos_remotos = self.listar_arquivos_remotos()
-        arquivos_remotos = self.filtrar_arquivos_por_ano(arquivos_remotos, ano, ano_inicio, ano_fim)
+        arquivos_remotos = self.listar_arquivos_remotos(ano, ano_inicio, ano_fim)
         arquivos_locais = self.listar_arquivos_locais()
         
         # Filtrar arquivos que precisam ser baixados
