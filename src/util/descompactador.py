@@ -1,10 +1,12 @@
 import logging
 import py7zr
 from pathlib import Path
-from typing import List, Tuple, Optional
+from typing import List, Tuple, Optional, Dict, Any
 from tqdm import tqdm
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import re
+import hashlib
+import time
 
 # Configuração de logging
 logger = logging.getLogger("descompactador")
@@ -44,6 +46,130 @@ class DescompactadorArquivos:
                 break
         
         return Path("files-unzip") / ano
+    
+    def _verificar_arquivo_zip(self, caminho_arquivo_zip: Path) -> Dict[str, Any]:
+        """
+        Verifica informações do arquivo .7z.
+        
+        Args:
+            caminho_arquivo_zip: Caminho do arquivo .7z
+            
+        Returns:
+            Dicionário com informações do arquivo
+        """
+        info = {
+            "existe": False,
+            "tamanho": 0,
+            "data_modificacao": None,
+            "hash_md5": None
+        }
+        
+        if caminho_arquivo_zip.exists():
+            stat = caminho_arquivo_zip.stat()
+            info["existe"] = True
+            info["tamanho"] = stat.st_size
+            info["data_modificacao"] = stat.st_mtime
+            
+            # Calcular hash MD5
+            try:
+                with open(caminho_arquivo_zip, 'rb') as f:
+                    hash_md5 = hashlib.md5()
+                    for chunk in iter(lambda: f.read(4096), b""):
+                        hash_md5.update(chunk)
+                    info["hash_md5"] = hash_md5.hexdigest()
+            except Exception as e:
+                logger.debug(f"Erro ao calcular hash MD5 de {caminho_arquivo_zip}: {e}")
+        
+        return info
+    
+    def _verificar_arquivo_descompactado(self, caminho_arquivo_zip: Path) -> Dict[str, Any]:
+        """
+        Verifica se o arquivo já foi descompactado e retorna informações.
+        
+        Args:
+            caminho_arquivo_zip: Caminho do arquivo .7z
+            
+        Returns:
+            Dicionário com informações do arquivo descompactado
+        """
+        info = {
+            "existe": False,
+            "arquivos_txt": [],
+            "tamanho_total": 0,
+            "data_modificacao": None
+        }
+        
+        # Determinar diretório de destino
+        diretorio_destino = self._destino_arquivo_unzip(caminho_arquivo_zip)
+        
+        if diretorio_destino.exists():
+            # Procurar por arquivos .txt que correspondam ao arquivo .7z
+            nome_base = caminho_arquivo_zip.stem  # Nome sem extensão
+            arquivos_txt = list(diretorio_destino.glob(f"{nome_base}*.txt"))
+            
+            if arquivos_txt:
+                info["existe"] = True
+                info["arquivos_txt"] = [str(arq) for arq in arquivos_txt]
+                
+                # Calcular tamanho total e data de modificação mais recente
+                tamanho_total = 0
+                data_mais_recente = 0
+                
+                for arquivo_txt in arquivos_txt:
+                    if arquivo_txt.exists():
+                        stat = arquivo_txt.stat()
+                        tamanho_total += stat.st_size
+                        data_mais_recente = max(data_mais_recente, stat.st_mtime)
+                
+                info["tamanho_total"] = tamanho_total
+                info["data_modificacao"] = data_mais_recente
+        
+        return info
+    
+    def _arquivo_precisa_descompactar(self, caminho_arquivo_zip: Path) -> bool:
+        """
+        Verifica se o arquivo precisa ser descompactado comparando informações do .7z e arquivos descompactados.
+        
+        Args:
+            caminho_arquivo_zip: Caminho do arquivo .7z
+            
+        Returns:
+            True se o arquivo precisa ser descompactado, False caso contrário
+        """
+        info_zip = self._verificar_arquivo_zip(caminho_arquivo_zip)
+        info_descompactado = self._verificar_arquivo_descompactado(caminho_arquivo_zip)
+        
+        # Se o arquivo .7z não existe, não precisa descompactar
+        if not info_zip["existe"]:
+            logger.warning(f"Arquivo .7z não encontrado: {caminho_arquivo_zip}")
+            return False
+        
+        # Se não há arquivos descompactados, precisa descompactar
+        if not info_descompactado["existe"]:
+            logger.info(f"Arquivo {caminho_arquivo_zip.name} não foi descompactado ainda")
+            return True
+        
+        # Se há arquivos descompactados, verificar se estão atualizados
+        # Comparar data de modificação do .7z com a dos arquivos descompactados
+        if info_zip["data_modificacao"] and info_descompactado["data_modificacao"]:
+            if info_zip["data_modificacao"] > info_descompactado["data_modificacao"]:
+                logger.info(f"Arquivo {caminho_arquivo_zip.name} foi modificado após descompactação")
+                return True
+        
+        # Verificar se os arquivos .txt existem e têm tamanho > 0
+        arquivos_txt = info_descompactado["arquivos_txt"]
+        if not arquivos_txt:
+            logger.info(f"Nenhum arquivo .txt encontrado para {caminho_arquivo_zip.name}")
+            return True
+        
+        # Verificar se todos os arquivos .txt têm tamanho > 0
+        for arquivo_txt in arquivos_txt:
+            if not Path(arquivo_txt).exists() or Path(arquivo_txt).stat().st_size == 0:
+                logger.info(f"Arquivo .txt vazio ou não encontrado: {arquivo_txt}")
+                return True
+        
+        logger.debug(f"Arquivo {caminho_arquivo_zip.name} já está descompactado e atualizado")
+        return False
     
     def descompactar_arquivo(self, caminho_arquivo_zip: Path) -> bool:
         """
@@ -135,6 +261,7 @@ class DescompactadorArquivos:
     def descompactar_arquivos_paralelo(self, max_workers: Optional[int] = None, ano: Optional[int] = None, ano_inicio: Optional[int] = None, ano_fim: Optional[int] = None) -> Tuple[int, int, int]:
         """
         Descompacta arquivos .7z de forma paralela, opcionalmente filtrados por ano.
+        Verifica se arquivos já foram descompactados para evitar reprocessamento.
         
         Args:
             max_workers: Número máximo de workers (usa self.max_workers se None)
@@ -157,15 +284,38 @@ class DescompactadorArquivos:
             logger.info("Nenhum arquivo .7z encontrado para descompactar")
             return 0, 0, 0
         
+        # Verificar quais arquivos precisam ser descompactados
+        arquivos_para_descompactar = []
+        arquivos_verificados = 0
+        
+        logger.info("Verificando arquivos que precisam ser descompactados...")
+        
+        for arquivo_zip in arquivos_zip:
+            arquivos_verificados += 1
+            
+            # Verificar se o arquivo precisa ser descompactado
+            if self._arquivo_precisa_descompactar(arquivo_zip):
+                arquivos_para_descompactar.append(arquivo_zip)
+            
+            # Log de progresso a cada 10 arquivos verificados
+            if arquivos_verificados % 10 == 0:
+                logger.info(f"Verificados {arquivos_verificados}/{len(arquivos_zip)} arquivos...")
+        
         total = len(arquivos_zip)
         descompactados = 0
         falhas = 0
         
-        logger.info(f"Iniciando descompactação paralela de {total} arquivos com {max_workers} workers")
+        logger.info(f"Verificação concluída: {len(arquivos_para_descompactar)} de {total} arquivos precisam ser descompactados")
+        
+        if not arquivos_para_descompactar:
+            logger.info("Todos os arquivos já estão descompactados!")
+            return total, 0, 0
+        
+        logger.info(f"Iniciando descompactação paralela de {len(arquivos_para_descompactar)} arquivos com {max_workers} workers")
         
         # Barra de progresso principal
         with tqdm(
-            total=total,
+            total=len(arquivos_para_descompactar),
             desc="Descompactando arquivos",
             unit="arquivo",
             position=0,
@@ -174,10 +324,10 @@ class DescompactadorArquivos:
             
             # Usar ThreadPoolExecutor para descompactação paralela
             with ThreadPoolExecutor(max_workers=max_workers) as executor:
-                # Submeter todas as descompactações
+                # Submeter apenas os arquivos que precisam ser descompactados
                 future_to_arquivo = {
                     executor.submit(self.descompactar_arquivo, arquivo_zip): arquivo_zip 
-                    for arquivo_zip in arquivos_zip
+                    for arquivo_zip in arquivos_para_descompactar
                 }
                 
                 # Processar resultados conforme completam

@@ -113,7 +113,7 @@ class PipelineParalelo:
             # Worker de conversão
             future_conversao = executor.submit(
                 self._worker_conversao,
-                conversor, ano, consolidar
+                conversor, ano, ano_inicio, ano_fim, consolidar
             )
             
             # Aguardar conclusão de todas as etapas
@@ -575,7 +575,7 @@ class PipelineParalelo:
             logger.error(f"Erro no worker de descompactação: {e}")
             self.descompactacao_finalizada = True
     
-    def _worker_conversao(self, conversor: ConversorParquet, ano: Optional[int], consolidar: bool):
+    def _worker_conversao(self, conversor: ConversorParquet, ano: Optional[int], ano_inicio: Optional[int] = None, ano_fim: Optional[int] = None, consolidar: bool = False):
         """Worker responsável pela conversão de arquivos."""
         logger.info("Worker de conversão iniciado")
         
@@ -591,7 +591,7 @@ class PipelineParalelo:
                             self.stats['conversao']['total'] += 1
                         
                         # Converter arquivo individual
-                        sucesso = self._converter_arquivo_individual(conversor, arquivo, ano)
+                        sucesso = self._converter_arquivo_individual(conversor, arquivo, ano, ano_inicio, ano_fim)
                         
                         if sucesso:
                             with self.lock:
@@ -637,6 +637,11 @@ class PipelineParalelo:
                 logger.error(f"Arquivo zip não encontrado: {caminho_arquivo_zip}")
                 return False
             
+            # Verificar se o arquivo precisa ser descompactado
+            if not descompactador._arquivo_precisa_descompactar(caminho_arquivo_zip):
+                logger.debug(f"Arquivo {arquivo} já está descompactado, pulando...")
+                return True  # Considerar sucesso se já está descompactado
+            
             # Descompactar arquivo
             sucesso = descompactador.descompactar_arquivo(caminho_arquivo_zip)
             return sucesso
@@ -645,7 +650,7 @@ class PipelineParalelo:
             logger.error(f"Erro ao descompactar {arquivo}: {e}")
             return False
     
-    def _converter_arquivo_individual(self, conversor: ConversorParquet, arquivo: str, ano: Optional[int]) -> bool:
+    def _converter_arquivo_individual(self, conversor: ConversorParquet, arquivo: str, ano: Optional[int], ano_inicio: Optional[int] = None, ano_fim: Optional[int] = None) -> bool:
         """Conversão de um arquivo específico."""
         try:
             # Extrair nome do arquivo sem extensão e pasta
@@ -655,26 +660,50 @@ class PipelineParalelo:
             diretorio_unzip = Path("files-unzip")
             arquivos_txt_encontrados = []
             
-            # Procurar em todas as subpastas por arquivos TXT que correspondam ao nome
+            # Determinar anos válidos para processamento
+            anos_validos = set()
+            if ano is not None:
+                anos_validos.add(ano)
+            elif ano_inicio is not None and ano_fim is not None:
+                anos_validos = set(range(ano_inicio, ano_fim + 1))
+            elif ano_inicio is not None:
+                # Ano inicial até o último disponível (limite arbitrário)
+                anos_validos = set(range(ano_inicio, 2100))
+            
+            # Procurar apenas nas pastas de anos válidos
             for pasta_ano in diretorio_unzip.iterdir():
                 if pasta_ano.is_dir():
+                    # Tentar extrair o ano da pasta
+                    ano_pasta = None
+                    try:
+                        ano_pasta = int(pasta_ano.name)
+                    except ValueError:
+                        continue
+                    
+                    # Verificar se o ano da pasta está nos anos válidos
+                    if anos_validos and ano_pasta not in anos_validos:
+                        logger.debug(f"Pulando pasta {pasta_ano.name} - ano não solicitado")
+                        continue
+                    
                     for arquivo_txt in pasta_ano.glob("*.txt"):
                         # Verificar se o arquivo TXT corresponde ao arquivo zip original
                         if nome_arquivo.lower() in arquivo_txt.name.lower():
-                            arquivos_txt_encontrados.append(arquivo_txt)
+                            arquivos_txt_encontrados.append((arquivo_txt, ano_pasta))
             
             if not arquivos_txt_encontrados:
-                logger.warning(f"Nenhum arquivo TXT encontrado para converter do arquivo {arquivo}")
+                logger.warning(f"Nenhum arquivo TXT encontrado para converter do arquivo {arquivo} nos anos solicitados")
                 return False
             
             # Converter cada arquivo TXT encontrado
             sucessos = 0
-            for arquivo_txt in arquivos_txt_encontrados:
+            for arquivo_txt, ano_arquivo in arquivos_txt_encontrados:
                 try:
-                    sucesso = conversor.converter_arquivo_txt_para_parquet(arquivo_txt, ano)
+                    # Usar o ano da pasta se disponível, senão usar o ano passado como parâmetro
+                    ano_para_conversao = ano_arquivo if ano_arquivo else ano
+                    sucesso = conversor.converter_arquivo_txt_para_parquet(arquivo_txt, ano_para_conversao)
                     if sucesso:
                         sucessos += 1
-                        logger.debug(f"Conversão concluída: {arquivo_txt.name}")
+                        logger.debug(f"Conversão concluída: {arquivo_txt.name} (ano: {ano_para_conversao})")
                     else:
                         logger.error(f"Falha na conversão: {arquivo_txt.name}")
                 except Exception as e:

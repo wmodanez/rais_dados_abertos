@@ -113,7 +113,7 @@ class ConversorParquet:
     
     def _extrair_ano_arquivo(self, nome_arquivo: str) -> Optional[str]:
         """
-        Extrai o ano do nome do arquivo.
+        Extrai o ano do nome do arquivo ou do caminho completo.
         Retorna None se não encontrar um ano válido.
         """
         # Padrões comuns para arquivos RAIS
@@ -126,6 +126,37 @@ class ConversorParquet:
         
         for padrao in padroes:
             match = re.search(padrao, nome_arquivo, re.IGNORECASE)
+            if match:
+                ano = match.group(1)
+                # Validar se é um ano razoável (entre 1985 e 2030)
+                if 1985 <= int(ano) <= 2030:
+                    return ano
+        
+        return None
+    
+    def _extrair_ano_caminho(self, caminho_arquivo: Path) -> Optional[str]:
+        """
+        Extrai o ano do caminho completo do arquivo.
+        Procura por pastas com nomes de ano no caminho.
+        
+        Args:
+            caminho_arquivo: Caminho completo do arquivo
+            
+        Returns:
+            Ano extraído ou None se não encontrado
+        """
+        # Converter para string e normalizar separadores
+        caminho_str = str(caminho_arquivo).replace('\\', '/')
+        
+        # Procurar por padrões de ano no caminho
+        padroes_ano = [
+            r'/(\d{4})/',  # /2024/
+            r'/(\d{4})$',  # /2024 (final do caminho)
+            r'^(\d{4})/',  # 2024/ (início do caminho)
+        ]
+        
+        for padrao in padroes_ano:
+            match = re.search(padrao, caminho_str)
             if match:
                 ano = match.group(1)
                 # Validar se é um ano razoável (entre 1985 e 2030)
@@ -338,13 +369,17 @@ class ConversorParquet:
         # Extrair informações do arquivo
         nome_arquivo = caminho_arquivo_txt.stem
         
-        # Determinar o ano: usar o especificado ou extrair do nome do arquivo
+        # Determinar o ano: usar o especificado, extrair do caminho ou do nome do arquivo
         if ano_especifico:
             ano = str(ano_especifico)
         else:
-            ano = self._extrair_ano_arquivo(nome_arquivo)
+            # Primeiro tentar extrair do caminho completo
+            ano = self._extrair_ano_caminho(caminho_arquivo_txt)
             if not ano:
-                ano = "desconhecido"
+                # Se não encontrar no caminho, tentar no nome do arquivo
+                ano = self._extrair_ano_arquivo(nome_arquivo)
+                if not ano:
+                    ano = "desconhecido"
         
         # Definir diretório de destino: parquet/ANO/arquivo/
         diretorio_destino = Path("parquet").resolve() / ano / nome_arquivo
