@@ -85,6 +85,18 @@ Exemplos de uso:
 
   # Descompactar e converter (arquivos já baixados):
   python main.py --descompactar-converter --ano 2024
+
+  # Converter com consolidação (arquivo único por ano):
+  python main.py --converter --ano 2024 --consolidacao
+
+  # Apenas converter com consolidação:
+  python main.py --apenas-converter --ano 2024 --consolidacao
+
+  # Descompactar e converter com consolidação:
+  python main.py --descompactar-converter --ano 2024 --consolidacao
+
+  # Apenas consolidar arquivos já convertidos:
+  python main.py --apenas-consolidar --ano 2024
         """
     )
     
@@ -141,6 +153,7 @@ Exemplos de uso:
     group.add_argument('--converter', action='store_true', help='Baixar, descompactar e converter para formato final')
     group.add_argument('--apenas-converter', action='store_true', help='Apenas converter arquivos já descompactados (não faz download)')
     group.add_argument('--descompactar-converter', action='store_true', help='Descompactar e converter arquivos já baixados (não faz download)')
+    group.add_argument('--apenas-consolidar', action='store_true', help='Apenas consolidar arquivos já convertidos em um único arquivo RAIS_ANO.parquet')
     
     parser.add_argument(
         "--ano",
@@ -174,6 +187,12 @@ Exemplos de uso:
         help="Tamanho do chunk para conversão Parquet (padrão: baseado no tamanho do arquivo)"
     )
     
+    parser.add_argument(
+        "--consolidacao",
+        action="store_true",
+        help="Consolidar todos os arquivos de um ano em um único arquivo RAIS_ANO.parquet após a conversão"
+    )
+    
     return parser
 
 
@@ -204,7 +223,8 @@ def main():
             args.apenas_descompactar,
             args.converter,
             args.apenas_converter,
-            args.descompactar_converter
+            args.descompactar_converter,
+            args.apenas_consolidar
         ])
         
         if not acoes_especificadas:
@@ -462,7 +482,7 @@ def main():
                     chunk_size=args.chunk_size,
                     max_workers=args.max_workers
                 )
-                resultado_conversao = conversor.converter_diretorio("files-unzip", ano=args.ano)
+                resultado_conversao = conversor.converter_diretorio("files-unzip", ano=args.ano, consolidar=args.consolidacao)
                 
                 print(f"\nResultado da conversão:")
                 print(f"  Total de arquivos: {resultado_conversao['total']}")
@@ -487,7 +507,7 @@ def main():
                 if args.faixa_anos and len(args.faixa_anos) >= 1:
                     ano_conversao = args.faixa_anos[0]
                 
-                resultado_conversao = conversor.converter_diretorio("files-unzip", ano=ano_conversao)
+                resultado_conversao = conversor.converter_diretorio("files-unzip", ano=ano_conversao, consolidar=args.consolidacao)
             
             print(f"\nResultado da conversão para Parquet:")
             print(f"  Total de arquivos: {resultado_conversao['total']}")
@@ -545,7 +565,7 @@ def main():
                     chunk_size=args.chunk_size,
                     max_workers=args.max_workers
                 )
-                resultado_conversao = conversor.converter_diretorio("files-unzip", ano=args.ano)
+                resultado_conversao = conversor.converter_diretorio("files-unzip", ano=args.ano, consolidar=args.consolidacao)
                 
                 print(f"\nResultado da conversão:")
                 print(f"  Total de arquivos: {resultado_conversao['total']}")
@@ -556,6 +576,28 @@ def main():
                     logger.warning(f"Conversão concluída com {resultado_conversao['falhas']} falhas")
                 else:
                     logger.info("Conversão concluída com sucesso")
+        
+        elif args.apenas_consolidar:
+            # Verificar se o ano foi especificado
+            if not args.ano:
+                logger.error("--apenas-consolidar requer que o ano seja especificado com --ano")
+                sys.exit(1)
+            
+            with medidor.etapa("Consolidação"):
+                logger.info(f"Iniciando apenas consolidação de arquivos do ano {args.ano}...")
+                conversor = ConversorParquet(
+                    chunk_size=args.chunk_size,
+                    max_workers=args.max_workers
+                )
+                
+                # Executar apenas a consolidação
+                conversor.consolidar_arquivos_ano(args.ano)
+                
+                # Limpar arquivos chunk antigos na raiz
+                conversor.limpar_chunks_antigos(args.ano)
+            
+            print(f"\nConsolidação do ano {args.ano} concluída com sucesso")
+            logger.info("Consolidação concluída com sucesso")
         
     except KeyboardInterrupt:
         logger.info("Operação interrompida pelo usuário")

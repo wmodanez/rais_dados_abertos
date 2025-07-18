@@ -470,13 +470,14 @@ class ConversorParquet:
             logger.error(f"Erro na conversão de {caminho_arquivo_txt}: {e}")
             return False
     
-    def converter_diretorio(self, diretorio_origem: str = "files-unzip", ano: Optional[int] = None) -> Dict[str, Any]:
+    def converter_diretorio(self, diretorio_origem: str = "files-unzip", ano: Optional[int] = None, consolidar: bool = False) -> Dict[str, Any]:
         """
         Converte todos os arquivos TXT de um diretório para Parquet.
         
         Args:
             diretorio_origem: Diretório com arquivos TXT (padrão: files-unzip)
             ano: Ano específico para converter (opcional)
+            consolidar: Se True, consolida todos os arquivos do ano em um único arquivo RAIS_ANO.parquet
             
         Returns:
             Dicionário com estatísticas da conversão
@@ -533,12 +534,14 @@ class ConversorParquet:
         
         logger.info(f"Conversão concluída: {convertidos} convertidos, {falhas} falhas")
         
-        # Consolidar arquivos se houve conversões bem-sucedidas
-        if convertidos > 0 and ano:
+        # Consolidar arquivos se houve conversões bem-sucedidas e a consolidação foi solicitada
+        if convertidos > 0 and ano and consolidar:
             logger.info("Iniciando consolidação dos arquivos...")
             self.consolidar_arquivos_ano(ano)
             # Limpar arquivos chunk antigos na raiz
             self.limpar_chunks_antigos(ano)
+        elif convertidos > 0 and ano and not consolidar:
+            logger.info("Consolidação não solicitada. Arquivos mantidos em chunks separados.")
         
         return resultado
 
