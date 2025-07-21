@@ -20,7 +20,7 @@ class PipelineParalelo:
     Permite que download, descompactação e conversão sejam executados simultaneamente.
     """
     
-    def __init__(self, max_workers: Optional[int] = None, chunk_size: Optional[int] = None, campos_especificos: Optional[List[str]] = None):
+    def __init__(self, max_workers: Optional[int] = None, chunk_size: Optional[int] = None, campos_especificos: Optional[List[str]] = None, limpar_arquivos_descompactados: bool = False):
         """
         Inicializa o pipeline paralelo.
         
@@ -28,10 +28,12 @@ class PipelineParalelo:
             max_workers: Número máximo de workers para processamento paralelo
             chunk_size: Tamanho do chunk para conversão
             campos_especificos: Lista de campos específicos a serem incluídos na conversão
+            limpar_arquivos_descompactados: Se True, apaga os arquivos TXT descompactados após a conversão
         """
         self.max_workers = max_workers or 4
         self.chunk_size = chunk_size
         self.campos_especificos = campos_especificos
+        self.limpar_arquivos_descompactados = limpar_arquivos_descompactados
         
         # Filas para comunicação entre etapas
         self.fila_download = Queue()
@@ -94,7 +96,7 @@ class PipelineParalelo:
         )
         
         descompactador = DescompactadorArquivos(max_workers=self.max_workers)
-        conversor = ConversorParquet(chunk_size=self.chunk_size, max_workers=self.max_workers, campos_especificos=self.campos_especificos)
+        conversor = ConversorParquet(chunk_size=self.chunk_size, max_workers=self.max_workers, campos_especificos=self.campos_especificos, limpar_arquivos_descompactados=self.limpar_arquivos_descompactados)
         
         # Iniciar workers em threads separadas
         with ThreadPoolExecutor(max_workers=3) as executor:
@@ -150,7 +152,7 @@ class PipelineParalelo:
         
         # Inicializar componentes
         descompactador = DescompactadorArquivos(max_workers=self.max_workers)
-        conversor = ConversorParquet(chunk_size=self.chunk_size, max_workers=self.max_workers, campos_especificos=self.campos_especificos)
+        conversor = ConversorParquet(chunk_size=self.chunk_size, max_workers=self.max_workers, campos_especificos=self.campos_especificos, limpar_arquivos_descompactados=self.limpar_arquivos_descompactados)
         
         # Marcar download como já finalizado (não há download)
         self.download_finalizado = True
@@ -349,7 +351,7 @@ class PipelineParalelo:
         logger.info("Iniciando pipeline de apenas conversão")
         
         # Inicializar conversor
-        conversor = ConversorParquet(chunk_size=self.chunk_size, max_workers=self.max_workers, campos_especificos=self.campos_especificos)
+        conversor = ConversorParquet(chunk_size=self.chunk_size, max_workers=self.max_workers, campos_especificos=self.campos_especificos, limpar_arquivos_descompactados=self.limpar_arquivos_descompactados)
         
         # Executar conversão
         resultado_conversao = conversor.converter_diretorio("files-unzip", ano=ano, consolidar=consolidar)
@@ -375,7 +377,7 @@ class PipelineParalelo:
         logger.info(f"Iniciando consolidação de arquivos do ano {ano}")
         
         # Inicializar conversor para usar seus métodos de consolidação
-        conversor = ConversorParquet(chunk_size=self.chunk_size, max_workers=self.max_workers, campos_especificos=self.campos_especificos)
+        conversor = ConversorParquet(chunk_size=self.chunk_size, max_workers=self.max_workers, campos_especificos=self.campos_especificos, limpar_arquivos_descompactados=self.limpar_arquivos_descompactados)
         
         try:
             # Executar consolidação

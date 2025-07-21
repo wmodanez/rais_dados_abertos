@@ -16,7 +16,7 @@ from .utilitarios import padronizar_colunas_dataframe
 logger = logging.getLogger("conversor_parquet")
 
 class ConversorParquet:
-    def __init__(self, chunk_size: Optional[int] = None, max_workers: Optional[int] = None, campos_especificos: Optional[List[str]] = None):
+    def __init__(self, chunk_size: Optional[int] = None, max_workers: Optional[int] = None, campos_especificos: Optional[List[str]] = None, limpar_arquivos_descompactados: bool = False):
         """
         Inicializa o conversor de arquivos TXT para Parquet.
         
@@ -27,6 +27,7 @@ class ConversorParquet:
                        Se None, será detectado automaticamente.
             campos_especificos: Lista de campos específicos a serem incluídos na conversão.
                               Se None, todos os campos serão incluídos.
+            limpar_arquivos_descompactados: Se True, apaga os arquivos TXT descompactados após a conversão.
         """
         # Detectar número de workers automaticamente se não especificado
         if max_workers is None:
@@ -39,6 +40,9 @@ class ConversorParquet:
         
         # Campos específicos para filtrar durante a conversão
         self.campos_especificos = [campo.upper() for campo in campos_especificos] if campos_especificos else None
+        
+        # Flag para controlar limpeza de arquivos descompactados
+        self.limpar_arquivos_descompactados = limpar_arquivos_descompactados
         
         # Criar diretório parquet se não existir
         Path("parquet").mkdir(exist_ok=True)
@@ -55,6 +59,11 @@ class ConversorParquet:
             logger.info(f"Conversor configurado - Campos específicos: {self.campos_especificos}")
         else:
             logger.info("Conversor configurado - Todos os campos serão incluídos")
+        
+        if self.limpar_arquivos_descompactados:
+            logger.info("Conversor configurado - Arquivos TXT descompactados serão apagados após conversão")
+        else:
+            logger.info("Conversor configurado - Arquivos TXT descompactados serão mantidos após conversão")
     
     def _detectar_workers_otimos(self) -> int:
         """
@@ -551,6 +560,14 @@ class ConversorParquet:
                 delattr(self, '_mapeamento_colunas')
             
             logger.info(f"Conversão concluída: {chunks_processados} chunks salvos em {diretorio_destino}")
+            
+            # Limpar arquivo descompactado se configurado
+            self.limpar_arquivos_descompactados(caminho_arquivo_txt)
+            
+            # Verificar se o diretório ficou vazio e removê-lo se necessário
+            diretorio_arquivo = caminho_arquivo_txt.parent
+            self.limpar_diretorio_descompactado_vazio(diretorio_arquivo)
+            
             return True
             
         except Exception as e:
@@ -635,6 +652,11 @@ class ConversorParquet:
         elif convertidos > 0 and ano and not consolidar:
             logger.info("Consolidação não solicitada. Arquivos mantidos em chunks separados.")
         
+        # Limpar diretórios vazios se configurado
+        if self.limpar_arquivos_descompactados and convertidos > 0:
+            logger.info("Verificando diretórios vazios para limpeza...")
+            self._limpar_diretorios_vazios(diretorio)
+        
         return resultado
 
     def limpar_chunks_antigos(self, ano: int) -> None:
@@ -654,6 +676,90 @@ class ConversorParquet:
                     logger.error(f"Erro ao remover arquivo antigo {arquivo}: {e}")
         else:
             logger.info(f"Nenhum arquivo chunk antigo encontrado em {diretorio_ano}")
+    
+    def limpar_arquivos_descompactados(self, caminho_arquivo_txt: Path) -> None:
+        """
+        Remove o arquivo TXT descompactado após a conversão bem-sucedida.
+        
+        Args:
+            caminho_arquivo_txt: Caminho do arquivo TXT a ser removido
+        """
+        if not self.limpar_arquivos_descompactados:
+            return
+        
+        try:
+            if caminho_arquivo_txt.exists():
+                # Calcular tamanho antes de remover para log
+                tamanho_mb = caminho_arquivo_txt.stat().st_size / (1024 * 1024)
+                
+                # Remover arquivo
+                caminho_arquivo_txt.unlink()
+                
+                logger.info(f"Arquivo descompactado removido: {caminho_arquivo_txt.name} ({tamanho_mb:.2f} MB)")
+            else:
+                logger.debug(f"Arquivo não encontrado para remoção: {caminho_arquivo_txt}")
+                
+        except Exception as e:
+            logger.error(f"Erro ao remover arquivo descompactado {caminho_arquivo_txt}: {e}")
+    
+    def limpar_diretorio_descompactado_vazio(self, diretorio: Path) -> None:
+        """
+        Remove diretório descompactado se estiver vazio após a conversão.
+        
+        Args:
+            diretorio: Caminho do diretório a ser verificado e removido se vazio
+        """
+        if not self.limpar_arquivos_descompactados:
+            return
+        
+        try:
+            if diretorio.exists() and diretorio.is_dir():
+                # Verificar se o diretório está vazio
+                arquivos_restantes = list(diretorio.glob("*"))
+                if not arquivos_restantes:
+                    # Remover diretório vazio
+                    diretorio.rmdir()
+                    logger.info(f"Diretório vazio removido: {diretorio}")
+                else:
+                    logger.debug(f"Diretório não está vazio, mantendo: {diretorio} ({len(arquivos_restantes)} arquivos restantes)")
+                    
+        except Exception as e:
+            logger.error(f"Erro ao verificar/remover diretório {diretorio}: {e}")
+    
+    def _limpar_diretorios_vazios(self, diretorio_raiz: Path) -> None:
+        """
+        Remove diretórios vazios recursivamente após a conversão.
+        
+        Args:
+            diretorio_raiz: Diretório raiz para verificar diretórios vazios
+        """
+        if not self.limpar_arquivos_descompactados:
+            return
+        
+        try:
+            diretorios_removidos = 0
+            
+            # Percorrer diretórios de forma recursiva, de baixo para cima
+            for diretorio in sorted(diretorio_raiz.rglob("*"), key=lambda x: len(x.parts), reverse=True):
+                if diretorio.is_dir():
+                    # Verificar se o diretório está vazio
+                    arquivos_restantes = list(diretorio.glob("*"))
+                    if not arquivos_restantes:
+                        try:
+                            diretorio.rmdir()
+                            diretorios_removidos += 1
+                            logger.debug(f"Diretório vazio removido: {diretorio}")
+                        except OSError:
+                            # Diretório não está vazio ou não pode ser removido
+                            pass
+            
+            if diretorios_removidos > 0:
+                logger.info(f"Limpeza concluída: {diretorios_removidos} diretórios vazios removidos")
+            else:
+                logger.debug("Nenhum diretório vazio encontrado para remoção")
+                
+        except Exception as e:
+            logger.error(f"Erro ao limpar diretórios vazios em {diretorio_raiz}: {e}")
     
     def consolidar_arquivos_ano(self, ano: int) -> None:
         """

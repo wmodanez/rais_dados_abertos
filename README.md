@@ -69,6 +69,15 @@ Este projeto automatiza o processamento de dados RAIS, permitindo:
 - Comunicação via filas entre etapas
 - Não requer configuração - funciona automaticamente
 
+### ✅ Limpeza Automática de Arquivos
+
+- **Limpeza inteligente** - apaga arquivos TXT descompactados após conversão bem-sucedida
+- **Economia de espaço** - pode economizar até 70% do espaço em disco
+- **Controle via flag** - ativado com `--limpar-descompactados`
+- **Limpeza de diretórios** - remove diretórios vazios automaticamente
+- **Logs detalhados** - registra cada arquivo removido com seu tamanho
+- **Segurança garantida** - só remove após conversão confirmada
+
 ### ✅ Monitoramento e Relatórios
 
 - **Formatação de tempo legível** - exibe tempos em formato H:M:S para melhor compreensão
@@ -368,6 +377,9 @@ python main.py --converter --ano 2024 --consolidacao --nivel-log INFO
 
 # Processamento com campos específicos
 python main.py --converter --ano 2024 --consolidacao --campos CNAE_2_0_CLASSE VINCULO_ATIVO_31_12 MUNICIPIO
+
+# Processamento com limpeza automática (economia de espaço)
+python main.py --converter --ano 2024 --consolidacao --limpar-descompactados
 ```
 
 ### **Processamento de Múltiplos Anos**
@@ -375,6 +387,9 @@ python main.py --converter --ano 2024 --consolidacao --campos CNAE_2_0_CLASSE VI
 ```bash
 # Processar anos de 2020 a 2024
 python main.py --converter --faixa-anos 2020 2024 --consolidacao
+
+# Processar múltiplos anos com limpeza automática
+python main.py --converter --faixa-anos 2020 2024 --consolidacao --limpar-descompactados
 ```
 
 ### **Otimização para Arquivos Grandes**
@@ -398,6 +413,26 @@ python main.py --apenas-converter --ano 2024
 
 # 4. Consolidar
 python main.py --apenas-consolidar --ano 2024
+```
+
+### **Economia de Espaço com Limpeza Automática**
+
+```bash
+# Converter e limpar arquivos descompactados
+python main.py --apenas-converter --ano 2024 --limpar-descompactados
+
+# Pipeline completo com limpeza
+python main.py --converter --ano 2024 --consolidacao --limpar-descompactados
+
+# Verificar economia de espaço
+du -sh files-unzip/ parquet/
+```
+
+**Economia típica por ano:**
+- Arquivo .7z: ~500 MB
+- Arquivo .txt descompactado: ~2.5 GB  
+- Arquivo .parquet: ~800 MB
+- **Economia com limpeza: ~1.7 GB por ano**
 
 ## 🔍 Monitoramento e Logs
 

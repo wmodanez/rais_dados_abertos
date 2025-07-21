@@ -106,6 +106,12 @@ Exemplos de uso:
 
   # Converter apenas campos específicos de todos os anos:
   python main.py --converter --campos CNAE_2_0_CLASSE VINCULO_ATIVO_31_12 MUNICIPIO
+
+  # Converter e apagar arquivos descompactados para economizar espaço:
+  python main.py --converter --ano 2024 --limpar-descompactados
+
+  # Pipeline completo com limpeza automática:
+  python main.py --converter --ano 2024 --consolidacao --limpar-descompactados
         """
     )
     
@@ -202,6 +208,12 @@ Exemplos de uso:
         help="Consolidar todos os arquivos de um ano em um único arquivo RAIS_ANO.parquet após a conversão"
     )
     
+    parser.add_argument(
+        "--limpar-descompactados",
+        action="store_true",
+        help="Apagar arquivos TXT descompactados após a conversão bem-sucedida para economizar espaço em disco"
+    )
+    
     # Argumentos para filtro de campos durante conversão
     parser.add_argument(
         "--campos",
@@ -294,7 +306,8 @@ def main():
                 pipeline = PipelineParalelo(
                     max_workers=args.max_workers,
                     chunk_size=args.chunk_size,
-                    campos_especificos=args.campos
+                    campos_especificos=args.campos,
+                    limpar_arquivos_descompactados=args.limpar_descompactados
                 )
                 
                 # Executar apenas download
@@ -361,7 +374,8 @@ def main():
                 pipeline = PipelineParalelo(
                     max_workers=args.max_workers,
                     chunk_size=args.chunk_size,
-                    campos_especificos=args.campos
+                    campos_especificos=args.campos,
+                    limpar_arquivos_descompactados=args.limpar_descompactados
                 )
                 
                 # Executar download e descompactação
@@ -410,7 +424,8 @@ def main():
                 pipeline = PipelineParalelo(
                     max_workers=args.max_workers,
                     chunk_size=args.chunk_size,
-                    campos_especificos=args.campos
+                    campos_especificos=args.campos,
+                    limpar_arquivos_descompactados=args.limpar_descompactados
                 )
                 
                 # Executar apenas descompactação
@@ -458,7 +473,8 @@ def main():
                 pipeline = PipelineParalelo(
                     max_workers=args.max_workers,
                     chunk_size=args.chunk_size,
-                    campos_especificos=args.campos
+                    campos_especificos=args.campos,
+                    limpar_arquivos_descompactados=args.limpar_descompactados
                 )
                 
                 # Executar pipeline
@@ -498,7 +514,8 @@ def main():
                 pipeline = PipelineParalelo(
                     max_workers=args.max_workers,
                     chunk_size=args.chunk_size,
-                    campos_especificos=args.campos
+                    campos_especificos=args.campos,
+                    limpar_arquivos_descompactados=args.limpar_descompactados
                 )
                 
                 # Executar apenas conversão
@@ -541,7 +558,8 @@ def main():
                 pipeline = PipelineParalelo(
                     max_workers=args.max_workers,
                     chunk_size=args.chunk_size,
-                    campos_especificos=args.campos
+                    campos_especificos=args.campos,
+                    limpar_arquivos_descompactados=args.limpar_descompactados
                 )
                 
                 # Executar pipeline (sem download)
@@ -576,7 +594,8 @@ def main():
                 pipeline = PipelineParalelo(
                     max_workers=args.max_workers,
                     chunk_size=args.chunk_size,
-                    campos_especificos=args.campos
+                    campos_especificos=args.campos,
+                    limpar_arquivos_descompactados=args.limpar_descompactados
                 )
                 
                 # Executar apenas a consolidação
