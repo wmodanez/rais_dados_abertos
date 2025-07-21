@@ -562,11 +562,13 @@ class ConversorParquet:
             logger.info(f"Conversão concluída: {chunks_processados} chunks salvos em {diretorio_destino}")
             
             # Limpar arquivo descompactado se configurado
-            self.limpar_arquivos_descompactados(caminho_arquivo_txt)
+            if self.limpar_arquivos_descompactados:
+                self._limpar_arquivo_descompactado(caminho_arquivo_txt)
             
             # Verificar se o diretório ficou vazio e removê-lo se necessário
             diretorio_arquivo = caminho_arquivo_txt.parent
-            self.limpar_diretorio_descompactado_vazio(diretorio_arquivo)
+            if self.limpar_arquivos_descompactados:
+                self.limpar_diretorio_descompactado_vazio(diretorio_arquivo)
             
             return True
             
@@ -677,7 +679,7 @@ class ConversorParquet:
         else:
             logger.info(f"Nenhum arquivo chunk antigo encontrado em {diretorio_ano}")
     
-    def limpar_arquivos_descompactados(self, caminho_arquivo_txt: Path) -> None:
+    def _limpar_arquivo_descompactado(self, caminho_arquivo_txt: Path) -> None:
         """
         Remove o arquivo TXT descompactado após a conversão bem-sucedida.
         
