@@ -761,6 +761,156 @@ class ConversorParquet:
         except Exception as e:
             logger.error(f"Erro ao limpar diretórios vazios em {diretorio_raiz}: {e}")
     
+    def consolidar_todos_anos(self, nome_arquivo_final: str = "RAIS_COMPLETO.parquet") -> Dict[str, Any]:
+        """
+        Consolida todos os arquivos RAIS_ANO.parquet em um único arquivo.
+        
+        Args:
+            nome_arquivo_final: Nome do arquivo final consolidado
+            
+        Returns:
+            Dicionário com estatísticas da consolidação
+        """
+        diretorio_parquet = Path("parquet")
+        if not diretorio_parquet.exists():
+            logger.error(f"Diretório parquet não encontrado: {diretorio_parquet}")
+            return {"status": "erro", "erro": "Diretório parquet não encontrado"}
+        
+        logger.info(f"Iniciando consolidação de todos os anos em {nome_arquivo_final}")
+        
+        # Encontrar todos os arquivos RAIS_ANO.parquet
+        arquivos_consolidados = []
+        anos_encontrados = []
+        
+        for ano_dir in diretorio_parquet.iterdir():
+            if ano_dir.is_dir():
+                # Tentar extrair o ano do nome da pasta
+                try:
+                    ano = int(ano_dir.name)
+                    if 1985 <= ano <= 2030:  # Ano válido
+                        arquivo_ano = ano_dir / f"RAIS_{ano}.parquet"
+                        if arquivo_ano.exists():
+                            arquivos_consolidados.append(arquivo_ano)
+                            anos_encontrados.append(ano)
+                            logger.info(f"Encontrado arquivo consolidado: {arquivo_ano}")
+                        else:
+                            logger.warning(f"Arquivo consolidado não encontrado para ano {ano}: {arquivo_ano}")
+                except ValueError:
+                    logger.debug(f"Pasta não é um ano válido: {ano_dir.name}")
+                    continue
+        
+        if not arquivos_consolidados:
+            logger.error("Nenhum arquivo consolidado encontrado")
+            return {"status": "erro", "erro": "Nenhum arquivo consolidado encontrado"}
+        
+        # Ordenar por ano
+        arquivos_consolidados.sort(key=lambda x: int(x.parent.name))
+        anos_encontrados.sort()
+        
+        logger.info(f"Encontrados {len(arquivos_consolidados)} arquivos consolidados dos anos: {anos_encontrados}")
+        
+        try:
+            # Função para ler um arquivo consolidado
+            def ler_arquivo_consolidado(arquivo: Path) -> Optional[pl.DataFrame]:
+                try:
+                    # Verificar se o arquivo tem tamanho mínimo
+                    if arquivo.stat().st_size < 12:
+                        logger.warning(f"Arquivo {arquivo} muito pequeno, pulando...")
+                        return None
+                    
+                    df = pl.read_parquet(arquivo)
+                    if df.height > 0:
+                        logger.info(f"Lido arquivo {arquivo.name}: {df.height} linhas")
+                        return df
+                    else:
+                        logger.warning(f"Arquivo {arquivo.name} está vazio")
+                        return None
+                except Exception as e:
+                    logger.error(f"Erro ao ler arquivo {arquivo}: {e}")
+                    return None
+            
+            # Ler todos os arquivos em paralelo
+            dataframes = []
+            total_linhas = 0
+            
+            with tqdm(
+                total=len(arquivos_consolidados),
+                desc="Lendo arquivos consolidados",
+                unit="arquivo",
+                position=0,
+                leave=True
+            ) as pbar_arquivos:
+                
+                with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
+                    # Submeter todos os arquivos para leitura
+                    future_to_arquivo = {
+                        executor.submit(ler_arquivo_consolidado, arquivo): arquivo 
+                        for arquivo in arquivos_consolidados
+                    }
+                    
+                    # Processar resultados conforme completam
+                    for future in as_completed(future_to_arquivo):
+                        arquivo = future_to_arquivo[future]
+                        try:
+                            df = future.result()
+                            if df is not None:
+                                dataframes.append(df)
+                                total_linhas += df.height
+                            pbar_arquivos.update(1)
+                        except Exception as e:
+                            logger.error(f"Exceção ao ler arquivo {arquivo}: {e}")
+                            pbar_arquivos.update(1)
+            
+            if not dataframes:
+                logger.error("Nenhum arquivo foi lido com sucesso")
+                return {"status": "erro", "erro": "Nenhum arquivo foi lido com sucesso"}
+            
+            # Concatenar todos os dataframes
+            logger.info(f"Concatenando {len(dataframes)} dataframes com {total_linhas} linhas totais")
+            df_final = pl.concat(dataframes)
+            
+            # Salvar arquivo final consolidado
+            arquivo_final = diretorio_parquet / nome_arquivo_final
+            logger.info(f"Salvando arquivo final consolidado: {arquivo_final}")
+            df_final.write_parquet(str(arquivo_final), compression="snappy")
+            
+            # Verificar se o arquivo foi criado
+            if arquivo_final.exists():
+                tamanho_mb = arquivo_final.stat().st_size / (1024 * 1024)
+                tamanho_gb = tamanho_mb / 1024
+                
+                logger.info(f"Arquivo final consolidado criado: {arquivo_final}")
+                logger.info(f"  Tamanho: {tamanho_gb:.2f} GB ({tamanho_mb:.2f} MB)")
+                logger.info(f"  Linhas: {df_final.height:,}")
+                logger.info(f"  Colunas: {len(df_final.columns)}")
+                logger.info(f"  Anos incluídos: {anos_encontrados}")
+                
+                # Estatísticas por ano
+                if 'ANO' in df_final.columns:
+                    estatisticas_ano = df_final.group_by('ANO').count().sort('ANO')
+                    logger.info("Estatísticas por ano:")
+                    for row in estatisticas_ano.iter_rows():
+                        ano, count = row
+                        logger.info(f"  Ano {ano}: {count:,} linhas")
+                
+                return {
+                    "status": "sucesso",
+                    "arquivo_final": str(arquivo_final),
+                    "tamanho_mb": tamanho_mb,
+                    "tamanho_gb": tamanho_gb,
+                    "total_linhas": df_final.height,
+                    "total_colunas": len(df_final.columns),
+                    "anos_incluidos": anos_encontrados,
+                    "arquivos_processados": len(arquivos_consolidados)
+                }
+            else:
+                logger.error(f"Arquivo final não foi criado: {arquivo_final}")
+                return {"status": "erro", "erro": "Arquivo final não foi criado"}
+                
+        except Exception as e:
+            logger.error(f"Erro na consolidação final: {e}")
+            return {"status": "erro", "erro": str(e)}
+    
     def consolidar_arquivos_ano(self, ano: int) -> None:
         """
         Consolida todos os arquivos de um ano em um único arquivo RAIS_ANO.parquet.

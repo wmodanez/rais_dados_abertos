@@ -112,6 +112,12 @@ Exemplos de uso:
 
   # Pipeline completo com limpeza automática:
   python main.py --converter --ano 2024 --consolidacao --limpar-descompactados
+
+  # Consolidar todos os anos em um único arquivo:
+  python main.py --consolidar-todos-anos
+
+  # Consolidar todos os anos com nome personalizado:
+  python main.py --consolidar-todos-anos --nome-arquivo RAIS_HISTORICO_COMPLETO.parquet
         """
     )
     
@@ -169,6 +175,7 @@ Exemplos de uso:
     group.add_argument('--apenas-converter', action='store_true', help='Apenas converter arquivos já descompactados (não faz download)')
     group.add_argument('--descompactar-converter', action='store_true', help='Descompactar e converter arquivos já baixados (não faz download)')
     group.add_argument('--apenas-consolidar', action='store_true', help='Apenas consolidar arquivos já convertidos em um único arquivo RAIS_ANO.parquet')
+    group.add_argument('--consolidar-todos-anos', action='store_true', help='Consolidar todos os arquivos RAIS_ANO.parquet em um único arquivo RAIS_COMPLETO.parquet')
     
     parser.add_argument(
         "--ano",
@@ -214,6 +221,19 @@ Exemplos de uso:
         help="Apagar arquivos TXT descompactados após a conversão bem-sucedida para economizar espaço em disco"
     )
     
+    parser.add_argument(
+        "--consolidar-todos",
+        action="store_true",
+        help="Consolidar todos os arquivos RAIS_ANO.parquet em um único arquivo RAIS_COMPLETO.parquet"
+    )
+    
+    parser.add_argument(
+        "--nome-arquivo",
+        type=str,
+        default="RAIS_COMPLETO.parquet",
+        help="Nome do arquivo final consolidado (padrão: RAIS_COMPLETO.parquet)"
+    )
+    
     # Argumentos para filtro de campos durante conversão
     parser.add_argument(
         "--campos",
@@ -254,7 +274,8 @@ def main():
             args.converter,
             args.apenas_converter,
             args.descompactar_converter,
-            args.apenas_consolidar
+            args.apenas_consolidar,
+            args.consolidar_todos_anos
         ])
         
         if not acoes_especificadas:
@@ -607,6 +628,33 @@ def main():
                     logger.info("Consolidação concluída com sucesso")
                 else:
                     print(f"\nErro na consolidação do ano {args.ano}: {resultado_consolidacao['erro']}")
+                    logger.error(f"Erro na consolidação: {resultado_consolidacao['erro']}")
+        
+        elif args.consolidar_todos_anos:
+            with medidor.etapa("Consolidação de Todos os Anos"):
+                logger.info("Iniciando consolidação de todos os anos...")
+                
+                # Criar pipeline paralelo para usar seu método de consolidação
+                pipeline = PipelineParalelo(
+                    max_workers=args.max_workers,
+                    chunk_size=args.chunk_size,
+                    campos_especificos=args.campos,
+                    limpar_arquivos_descompactados=args.limpar_descompactados
+                )
+                
+                # Executar consolidação de todos os anos
+                resultado_consolidacao = pipeline.consolidar_todos_anos(args.nome_arquivo)
+                
+                if resultado_consolidacao['status'] == 'sucesso':
+                    print(f"\nConsolidação de todos os anos concluída com sucesso!")
+                    print(f"  Arquivo final: {resultado_consolidacao['arquivo_final']}")
+                    print(f"  Tamanho: {resultado_consolidacao['tamanho_gb']:.2f} GB")
+                    print(f"  Total de linhas: {resultado_consolidacao['total_linhas']:,}")
+                    print(f"  Anos incluídos: {resultado_consolidacao['anos_incluidos']}")
+                    print(f"  Arquivos processados: {resultado_consolidacao['arquivos_processados']}")
+                    logger.info("Consolidação de todos os anos concluída com sucesso")
+                else:
+                    print(f"\nErro na consolidação de todos os anos: {resultado_consolidacao['erro']}")
                     logger.error(f"Erro na consolidação: {resultado_consolidacao['erro']}")
         
     except KeyboardInterrupt:

@@ -50,6 +50,7 @@ Este projeto automatiza o processamento de dados RAIS, permitindo:
 - Remoção automática de chunks após consolidação
 - Estrutura organizada por ano
 - Pipeline paralelo integrado
+- **Consolidação de todos os anos** - junta todos os arquivos RAIS_ANO.parquet em um único arquivo histórico
 
 ### ✅ Filtro de Campos Durante Conversão
 
@@ -349,6 +350,7 @@ rais/
 | `--apenas-converter` | Apenas converter arquivos já descompactados |
 | `--descompactar-converter` | Descompactar e converter arquivos já baixados |
 | `--apenas-consolidar` | Apenas consolidar arquivos já convertidos |
+| `--consolidar-todos-anos` | Consolidar todos os arquivos RAIS_ANO.parquet em um único arquivo histórico |
 
 
 ### **Flags de Configuração**
@@ -433,6 +435,25 @@ du -sh files-unzip/ parquet/
 - Arquivo .txt descompactado: ~2.5 GB  
 - Arquivo .parquet: ~800 MB
 - **Economia com limpeza: ~1.7 GB por ano**
+
+### **Consolidação de Todos os Anos**
+
+```bash
+# Consolidar todos os anos em um único arquivo
+python main.py --consolidar-todos-anos
+
+# Consolidar com nome personalizado
+python main.py --consolidar-todos-anos --nome-arquivo RAIS_HISTORICO_2015_2024.parquet
+
+# Consolidar com mais workers para melhor performance
+python main.py --consolidar-todos-anos --max-workers 8 --nome-arquivo RAIS_COMPLETO.parquet
+```
+
+**Cenário típico com 10 anos (2015-2024):**
+- **Tempo estimado**: 5-15 minutos
+- **Uso de memória**: ~2-4 GB RAM
+- **Espaço em disco**: ~8-12 GB para arquivo final
+- **Arquivo resultante**: `parquet/RAIS_COMPLETO.parquet`
 
 ## 🔍 Monitoramento e Logs
 

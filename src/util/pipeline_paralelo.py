@@ -403,6 +403,41 @@ class PipelineParalelo:
                 'erro': str(e)
             }
     
+    def consolidar_todos_anos(self, nome_arquivo_final: str = "RAIS_COMPLETO.parquet") -> Dict[str, Any]:
+        """
+        Consolida todos os arquivos RAIS_ANO.parquet em um único arquivo.
+        
+        Args:
+            nome_arquivo_final: Nome do arquivo final consolidado
+            
+        Returns:
+            Dicionário com estatísticas da consolidação
+        """
+        logger.info(f"Iniciando consolidação de todos os anos em {nome_arquivo_final}")
+        
+        # Inicializar conversor para usar seus métodos de consolidação
+        conversor = ConversorParquet(chunk_size=self.chunk_size, max_workers=self.max_workers, campos_especificos=self.campos_especificos, limpar_arquivos_descompactados=self.limpar_arquivos_descompactados)
+        
+        try:
+            # Executar consolidação de todos os anos
+            resultado = conversor.consolidar_todos_anos(nome_arquivo_final)
+            
+            if resultado['status'] == 'sucesso':
+                logger.info(f"Consolidação de todos os anos concluída com sucesso")
+                logger.info(f"Arquivo final: {resultado['arquivo_final']}")
+                logger.info(f"Tamanho: {resultado['tamanho_gb']:.2f} GB")
+                logger.info(f"Total de linhas: {resultado['total_linhas']:,}")
+                logger.info(f"Anos incluídos: {resultado['anos_incluidos']}")
+            
+            return resultado
+            
+        except Exception as e:
+            logger.error(f"Erro durante a consolidação de todos os anos: {e}")
+            return {
+                'status': 'erro',
+                'erro': str(e)
+            }
+    
     def _inicializar_monitor_arquivo(self, nome_arquivo: str):
         """Inicializa o monitor para um arquivo específico."""
         with self.monitor_lock:
