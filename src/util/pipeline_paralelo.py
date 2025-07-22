@@ -104,7 +104,16 @@ class PipelineParalelo:
         )
         
         descompactador = DescompactadorArquivos(max_workers=self.max_workers)
-        conversor = ConversorParquet(chunk_size=self.chunk_size, max_workers=self.max_workers, campos_especificos=self.campos_especificos, limpar_arquivos_descompactados=self.limpar_arquivos_descompactados)
+        conversor = ConversorParquet(
+            chunk_size=self.chunk_size, 
+            max_workers=self.max_workers, 
+            campos_especificos=self.campos_especificos, 
+            limpar_arquivos_descompactados=self.limpar_arquivos_descompactados,
+            filtrar_empregos_verdes=self.filtrar_empregos_verdes,
+            arquivo_filtro_cnae=self.arquivo_filtro_cnae,
+            nome_filtro_cnae=self.nome_filtro_cnae,
+            situacao_filtro_cnae=self.situacao_filtro_cnae
+        )
         
         # Iniciar workers em threads separadas
         with ThreadPoolExecutor(max_workers=3) as executor:
