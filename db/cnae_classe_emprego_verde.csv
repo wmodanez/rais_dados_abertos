@@ -1,0 +1,674 @@
+﻿Código CNAE;Ordem;Seção;ClasseCNAE;Descrição da Atividade;situacao
+1113;1;Seção A - Agricultura, pecuária, produção florestal, pesca e aqüicultura;01.11-3;Cultivo de cereais;0
+1121;2;Seção A - Agricultura, pecuária, produção florestal, pesca e aqüicultura;01.12-1;Cultivo de algodão herbáceo e de outras fibras de lavoura temporária;0
+1130;3;Seção A - Agricultura, pecuária, produção florestal, pesca e aqüicultura;01.13-0;Cultivo de cana-de-açúcar;0
+1148;4;Seção A - Agricultura, pecuária, produção florestal, pesca e aqüicultura;01.14-8;Cultivo de fumo;0
+1156;5;Seção A - Agricultura, pecuária, produção florestal, pesca e aqüicultura;01.15-6;Cultivo de soja;0
+1164;6;Seção A - Agricultura, pecuária, produção florestal, pesca e aqüicultura;01.16-4;Cultivo de oleaginosas de lavoura temporária, exceto soja;0
+1199;7;Seção A - Agricultura, pecuária, produção florestal, pesca e aqüicultura;01.19-9;Cultivo de plantas de lavoura temporária não especificadas anteriormente;0
+1211;8;Seção A - Agricultura, pecuária, produção florestal, pesca e aqüicultura;01.21-1;Horticultura;0
+1229;9;Seção A - Agricultura, pecuária, produção florestal, pesca e aqüicultura;01.22-9;Cultivo de flores e plantas ornamentais;0
+1318;10;Seção A - Agricultura, pecuária, produção florestal, pesca e aqüicultura;01.31-8;Cultivo de laranja;0
+1326;11;Seção A - Agricultura, pecuária, produção florestal, pesca e aqüicultura;01.32-6;Cultivo de uva;0
+1334;12;Seção A - Agricultura, pecuária, produção florestal, pesca e aqüicultura;01.33-4;Cultivo de frutas de lavoura permanente, exceto laranja e uva;0
+1342;13;Seção A - Agricultura, pecuária, produção florestal, pesca e aqüicultura;01.34-2;Cultivo de café;0
+1351;14;Seção A - Agricultura, pecuária, produção florestal, pesca e aqüicultura;01.35-1;Cultivo de cacau;0
+1393;15;Seção A - Agricultura, pecuária, produção florestal, pesca e aqüicultura;01.39-3;Cultivo de plantas de lavoura permanente não especificadas anteriormente;0
+1415;16;Seção A - Agricultura, pecuária, produção florestal, pesca e aqüicultura;01.41-5;Produção de sementes certificadas;0
+1423;17;Seção A - Agricultura, pecuária, produção florestal, pesca e aqüicultura;01.42-3;Produção de mudas e outras formas de propagação vegetal, certificadas;1
+1512;18;Seção A - Agricultura, pecuária, produção florestal, pesca e aqüicultura;01.51-2;Criação de bovinos;0
+1521;19;Seção A - Agricultura, pecuária, produção florestal, pesca e aqüicultura;01.52-1;Criação de outros animais de grande porte;0
+1539;20;Seção A - Agricultura, pecuária, produção florestal, pesca e aqüicultura;01.53-9;Criação de caprinos e ovinos;0
+1547;21;Seção A - Agricultura, pecuária, produção florestal, pesca e aqüicultura;01.54-7;Criação de suínos;0
+1555;22;Seção A - Agricultura, pecuária, produção florestal, pesca e aqüicultura;01.55-5;Criação de aves;0
+1598;23;Seção A - Agricultura, pecuária, produção florestal, pesca e aqüicultura;01.59-8;Criação de animais não especificados anteriormente;0
+1610;24;Seção A - Agricultura, pecuária, produção florestal, pesca e aqüicultura;01.61-0;Atividades de apoio à agricultura;0
+1628;25;Seção A - Agricultura, pecuária, produção florestal, pesca e aqüicultura;01.62-8;Atividades de apoio à pecuária;0
+1636;26;Seção A - Agricultura, pecuária, produção florestal, pesca e aqüicultura;01.63-6;Atividades de pós-colheita;0
+1709;27;Seção A - Agricultura, pecuária, produção florestal, pesca e aqüicultura;01.70-9;Caça e serviços relacionados;0
+2101;28;Seção A - Agricultura, pecuária, produção florestal, pesca e aqüicultura;02.10-1;Produção florestal - florestas plantadas;1
+2209;29;Seção A - Agricultura, pecuária, produção florestal, pesca e aqüicultura;02.20-9;Produção florestal - florestas nativas;0
+2306;30;Seção A - Agricultura, pecuária, produção florestal, pesca e aqüicultura;02.30-6;Atividades de apoio à produção florestal;0
+3116;31;Seção A - Agricultura, pecuária, produção florestal, pesca e aqüicultura;03.11-6;Pesca em água salgada;0
+3124;32;Seção A - Agricultura, pecuária, produção florestal, pesca e aqüicultura;03.12-4;Pesca em água doce;0
+3213;33;Seção A - Agricultura, pecuária, produção florestal, pesca e aqüicultura;03.21-3;Aqüicultura em água salgada e salobra;0
+3221;34;Seção A - Agricultura, pecuária, produção florestal, pesca e aqüicultura;03.22-1;Aqüicultura em água doce;0
+5003;35;Seção B - Indústrias extrativas;05.00-3;Extração de carvão mineral;0
+6000;36;Seção B - Indústrias extrativas;06.00-0;Extração de petróleo e gás natural;0
+7103;37;Seção B - Indústrias extrativas;07.10-3;Extração de minério de ferro;0
+7219;38;Seção B - Indústrias extrativas;07.21-9;Extração de minério de alumínio;0
+7227;39;Seção B - Indústrias extrativas;07.22-7;Extração de minério de estanho;0
+7235;40;Seção B - Indústrias extrativas;07.23-5;Extração de minério de manganês;0
+7243;41;Seção B - Indústrias extrativas;07.24-3;Extração de minério de metais preciosos;0
+7251;42;Seção B - Indústrias extrativas;07.25-1;Extração de minerais radioativos;0
+7294;43;Seção B - Indústrias extrativas;07.29-4;Extração de minerais metálicos não-ferrosos não especificados anteriormente;0
+8100;44;Seção B - Indústrias extrativas;08.10-0;Extração de pedra, areia e argila;0
+8916;45;Seção B - Indústrias extrativas;08.91-6;Extração de minerais para fabricação de adubos, fertilizantes e outros produtos químicos;0
+8924;46;Seção B - Indústrias extrativas;08.92-4;Extração e refino de sal marinho e sal-gema;0
+8932;47;Seção B - Indústrias extrativas;08.93-2;Extração de gemas (pedras preciosas e semipreciosas);0
+8991;48;Seção B - Indústrias extrativas;08.99-1;Extração de minerais não-metálicos não especificados anteriormente;0
+9106;49;Seção B - Indústrias extrativas;09.10-6;Atividades de apoio à extração de petróleo e gás natural;0
+9904;50;Seção B - Indústrias extrativas;09.90-4;Atividades de apoio à extração de minerais, exceto petróleo e gás natural;0
+10112;51;Seção C - Indústrias de transformação;10.11-2;Abate de reses, exceto suínos;0
+10121;52;Seção C - Indústrias de transformação;10.12-1;Abate de suínos, aves e outros pequenos animais;0
+10139;53;Seção C - Indústrias de transformação;10.13-9;Fabricação de produtos de carne;0
+10201;54;Seção C - Indústrias de transformação;10.20-1;Preservação do pescado e fabricação de produtos do pescado;0
+10317;55;Seção C - Indústrias de transformação;10.31-7;Fabricação de conservas de frutas;0
+10325;56;Seção C - Indústrias de transformação;10.32-5;Fabricação de conservas de legumes e outros vegetais;0
+10333;57;Seção C - Indústrias de transformação;10.33-3;Fabricação de sucos de frutas, hortaliças e legumes;0
+10414;58;Seção C - Indústrias de transformação;10.41-4;Fabricação de óleos vegetais em bruto, exceto óleo de milho;0
+10422;59;Seção C - Indústrias de transformação;10.42-2;Fabricação de óleos vegetais refinados, exceto óleo de milho;0
+10431;60;Seção C - Indústrias de transformação;10.43-1;Fabricação de margarina e outras gorduras vegetais e de óleos não-comestíveis de animais;0
+10511;61;Seção C - Indústrias de transformação;10.51-1;Preparação do leite;0
+10520;62;Seção C - Indústrias de transformação;10.52-0;Fabricação de laticínios;0
+10538;63;Seção C - Indústrias de transformação;10.53-8;Fabricação de sorvetes e outros gelados comestíveis;0
+10619;64;Seção C - Indústrias de transformação;10.61-9;Beneficiamento de arroz e fabricação de produtos do arroz;0
+10627;65;Seção C - Indústrias de transformação;10.62-7;Moagem de trigo e fabricação de derivados;0
+10635;66;Seção C - Indústrias de transformação;10.63-5;Fabricação de farinha de mandioca e derivados;0
+10643;67;Seção C - Indústrias de transformação;10.64-3;Fabricação de farinha de milho e derivados, exceto óleos de milho;0
+10651;68;Seção C - Indústrias de transformação;10.65-1;Fabricação de amidos e féculas de vegetais e de óleos de milho;0
+10660;69;Seção C - Indústrias de transformação;10.66-0;Fabricação de alimentos para animais;0
+10694;70;Seção C - Indústrias de transformação;10.69-4;Moagem e fabricação de produtos de origem vegetal não especificados anteriormente;0
+10716;71;Seção C - Indústrias de transformação;10.71-6;Fabricação de açúcar em bruto;0
+10724;72;Seção C - Indústrias de transformação;10.72-4;Fabricação de açúcar refinado;0
+10813;73;Seção C - Indústrias de transformação;10.81-3;Torrefação e moagem de café;0
+10821;74;Seção C - Indústrias de transformação;10.82-1;Fabricação de produtos à base de café;0
+10911;75;Seção C - Indústrias de transformação;10.91-1;Fabricação de produtos de panificação;0
+10929;76;Seção C - Indústrias de transformação;10.92-9;Fabricação de biscoitos e bolachas;0
+10937;77;Seção C - Indústrias de transformação;10.93-7;Fabricação de produtos derivados do cacau, de chocolates e confeitos;0
+10945;78;Seção C - Indústrias de transformação;10.94-5;Fabricação de massas alimentícias;0
+10953;79;Seção C - Indústrias de transformação;10.95-3;Fabricação de especiarias, molhos, temperos e condimentos;0
+10961;80;Seção C - Indústrias de transformação;10.96-1;Fabricação de alimentos e pratos prontos;0
+10996;81;Seção C - Indústrias de transformação;10.99-6;Fabricação de produtos alimentícios não especificados anteriormente;0
+11119;82;Seção C - Indústrias de transformação;11.11-9;Fabricação de aguardentes e outras bebidas destiladas;0
+11127;83;Seção C - Indústrias de transformação;11.12-7;Fabricação de vinho;0
+11135;84;Seção C - Indústrias de transformação;11.13-5;Fabricação de malte, cervejas e chopes;0
+11216;85;Seção C - Indústrias de transformação;11.21-6;Fabricação de águas envasadas;0
+11224;86;Seção C - Indústrias de transformação;11.22-4;Fabricação de refrigerantes e de outras bebidas não-alcoólicas;0
+12107;87;Seção C - Indústrias de transformação;12.10-7;Processamento industrial do fumo;0
+12204;88;Seção C - Indústrias de transformação;12.20-4;Fabricação de produtos do fumo;0
+13111;89;Seção C - Indústrias de transformação;13.11-1;Preparação e fiação de fibras de algodão;0
+13120;90;Seção C - Indústrias de transformação;13.12-0;Preparação e fiação de fibras têxteis naturais, exceto algodão;0
+13138;91;Seção C - Indústrias de transformação;13.13-8;Fiação de fibras artificiais e sintéticas;0
+13146;92;Seção C - Indústrias de transformação;13.14-6;Fabricação de linhas para costurar e bordar;0
+13219;93;Seção C - Indústrias de transformação;13.21-9;Tecelagem de fios de algodão;0
+13227;94;Seção C - Indústrias de transformação;13.22-7;Tecelagem de fios de fibras têxteis naturais, exceto algodão;0
+13235;95;Seção C - Indústrias de transformação;13.23-5;Tecelagem de fios de fibras artificiais e sintéticas;0
+13308;96;Seção C - Indústrias de transformação;13.30-8;Fabricação de tecidos de malha;0
+13405;97;Seção C - Indústrias de transformação;13.40-5;Acabamentos em fios, tecidos e artefatos têxteis;0
+13511;98;Seção C - Indústrias de transformação;13.51-1;Fabricação de artefatos têxteis para uso doméstico;0
+13529;99;Seção C - Indústrias de transformação;13.52-9;Fabricação de artefatos de tapeçaria;0
+13537;100;Seção C - Indústrias de transformação;13.53-7;Fabricação de artefatos de cordoaria;0
+13545;101;Seção C - Indústrias de transformação;13.54-5;Fabricação de tecidos especiais, inclusive artefatos;0
+13596;102;Seção C - Indústrias de transformação;13.59-6;Fabricação de outros produtos têxteis não especificados anteriormente;0
+14118;103;Seção C - Indústrias de transformação;14.11-8;Confecção de roupas íntimas;0
+14126;104;Seção C - Indústrias de transformação;14.12-6;Confecção de peças do vestuário, exceto roupas íntimas;0
+14134;105;Seção C - Indústrias de transformação;14.13-4;Confecção de roupas profissionais;0
+14142;106;Seção C - Indústrias de transformação;14.14-2;Fabricação de acessórios do vestuário, exceto para segurança e proteção;0
+14215;107;Seção C - Indústrias de transformação;14.21-5;Fabricação de meias;0
+14223;108;Seção C - Indústrias de transformação;14.22-3;Fabricação de artigos do vestuário, produzidos em malharias e tricotagens, exceto meias;0
+15106;109;Seção C - Indústrias de transformação;15.10-6;Curtimento e outras preparações de couro;0
+15211;110;Seção C - Indústrias de transformação;15.21-1;Fabricação de artigos para viagem, bolsas e semelhantes de qualquer material;0
+15297;111;Seção C - Indústrias de transformação;15.29-7;Fabricação de artefatos de couro não especificados anteriormente;0
+15319;112;Seção C - Indústrias de transformação;15.31-9;Fabricação de calçados de couro;0
+15327;113;Seção C - Indústrias de transformação;15.32-7;Fabricação de tênis de qualquer material;0
+15335;114;Seção C - Indústrias de transformação;15.33-5;Fabricação de calçados de material sintético;0
+15394;115;Seção C - Indústrias de transformação;15.39-4;Fabricação de calçados de materiais não especificados anteriormente;0
+15408;116;Seção C - Indústrias de transformação;15.40-8;Fabricação de partes para calçados, de qualquer material;0
+16102;117;Seção C - Indústrias de transformação;16.10-2;Desdobramento de madeira;0
+16218;118;Seção C - Indústrias de transformação;16.21-8;Fabricação de madeira laminada e de chapas de madeira compensada, prensada e aglomerada;0
+16226;119;Seção C - Indústrias de transformação;16.22-6;Fabricação de estruturas de madeira e de artigos de carpintaria para construção;0
+16234;120;Seção C - Indústrias de transformação;16.23-4;Fabricação de artefatos de tanoaria e de embalagens de madeira;0
+16293;121;Seção C - Indústrias de transformação;16.29-3;Fabricação de artefatos de madeira, palha, cortiça, vime e material trançado não especificados anteriormente, exceto móveis;0
+17109;122;Seção C - Indústrias de transformação;17.10-9;Fabricação de celulose e outras pastas para a fabricação de papel;0
+17214;123;Seção C - Indústrias de transformação;17.21-4;Fabricação de papel;0
+17222;124;Seção C - Indústrias de transformação;17.22-2;Fabricação de cartolina e papel-cartão;0
+17311;125;Seção C - Indústrias de transformação;17.31-1;Fabricação de embalagens de papel;0
+17320;126;Seção C - Indústrias de transformação;17.32-0;Fabricação de embalagens de cartolina e papel-cartão;0
+17338;127;Seção C - Indústrias de transformação;17.33-8;Fabricação de chapas e de embalagens de papelão ondulado;0
+17419;128;Seção C - Indústrias de transformação;17.41-9;Fabricação de produtos de papel, cartolina, papel-cartão e papelão ondulado para uso comercial e de escritório;0
+17427;129;Seção C - Indústrias de transformação;17.42-7;Fabricação de produtos de papel para usos doméstico e higiênico-sanitário;0
+17494;130;Seção C - Indústrias de transformação;17.49-4;Fabricação de produtos de pastas celulósicas, papel, cartolina, papel-cartão e papelão ondulado não especificados anteriormente;0
+18113;131;Seção C - Indústrias de transformação;18.11-3;Impressão de jornais, livros, revistas e outras publicações periódicas;0
+18121;132;Seção C - Indústrias de transformação;18.12-1;Impressão de material de segurança;0
+18130;133;Seção C - Indústrias de transformação;18.13-0;Impressão de materiais para outros usos;0
+18211;134;Seção C - Indústrias de transformação;18.21-1;Serviços de pré-impressão;0
+18229;135;Seção C - Indústrias de transformação;18.22-9;Serviços de acabamentos gráficos;0
+18300;136;Seção C - Indústrias de transformação;18.30-0;Reprodução de materiais gravados em qualquer suporte;0
+19101;137;Seção C - Indústrias de transformação;19.10-1;Coquerias;0
+19217;138;Seção C - Indústrias de transformação;19.21-7;Fabricação de produtos do refino de petróleo;0
+19225;139;Seção C - Indústrias de transformação;19.22-5;Fabricação de produtos derivados do petróleo, exceto produtos do refino;0
+19314;140;Seção C - Indústrias de transformação;19.31-4;Fabricação de álcool;0
+19322;141;Seção C - Indústrias de transformação;19.32-2;Fabricação de biocombustíveis, exceto álcool;0
+20118;142;Seção C - Indústrias de transformação;20.11-8;Fabricação de cloro e álcalis;0
+20126;143;Seção C - Indústrias de transformação;20.12-6;Fabricação de intermediários para fertilizantes;0
+20134;144;Seção C - Indústrias de transformação;20.13-4;Fabricação de adubos e fertilizantes;0
+20142;145;Seção C - Indústrias de transformação;20.14-2;Fabricação de gases industriais;0
+20193;146;Seção C - Indústrias de transformação;20.19-3;Fabricação de produtos químicos inorgânicos não especificados anteriormente;0
+20215;147;Seção C - Indústrias de transformação;20.21-5;Fabricação de produtos petroquímicos básicos;0
+20223;148;Seção C - Indústrias de transformação;20.22-3;Fabricação de intermediários para plastificantes, resinas e fibras;0
+20291;149;Seção C - Indústrias de transformação;20.29-1;Fabricação de produtos químicos orgânicos não especificados anteriormente;0
+20312;150;Seção C - Indústrias de transformação;20.31-2;Fabricação de resinas termoplásticas;0
+20321;151;Seção C - Indústrias de transformação;20.32-1;Fabricação de resinas termofixas;0
+20339;152;Seção C - Indústrias de transformação;20.33-9;Fabricação de elastômeros;0
+20401;153;Seção C - Indústrias de transformação;20.40-1;Fabricação de fibras artificiais e sintéticas;0
+20517;154;Seção C - Indústrias de transformação;20.51-7;Fabricação de defensivos agrícolas;0
+20525;155;Seção C - Indústrias de transformação;20.52-5;Fabricação de desinfestantes domissanitários;0
+20614;156;Seção C - Indústrias de transformação;20.61-4;Fabricação de sabões e detergentes sintéticos;0
+20622;157;Seção C - Indústrias de transformação;20.62-2;Fabricação de produtos de limpeza e polimento;0
+20631;158;Seção C - Indústrias de transformação;20.63-1;Fabricação de cosméticos, produtos de perfumaria e de higiene pessoal;0
+20711;159;Seção C - Indústrias de transformação;20.71-1;Fabricação de tintas, vernizes, esmaltes e lacas;0
+20720;160;Seção C - Indústrias de transformação;20.72-0;Fabricação de tintas de impressão;0
+20738;161;Seção C - Indústrias de transformação;20.73-8;Fabricação de impermeabilizantes, solventes e produtos afins;0
+20916;162;Seção C - Indústrias de transformação;20.91-6;Fabricação de adesivos e selantes;0
+20924;163;Seção C - Indústrias de transformação;20.92-4;Fabricação de explosivos;0
+20932;164;Seção C - Indústrias de transformação;20.93-2;Fabricação de aditivos de uso industrial;0
+20941;165;Seção C - Indústrias de transformação;20.94-1;Fabricação de catalisadores;0
+20991;166;Seção C - Indústrias de transformação;20.99-1;Fabricação de produtos químicos não especificados anteriormente;0
+21106;167;Seção C - Indústrias de transformação;21.10-6;Fabricação de produtos farmoquímicos;0
+21211;168;Seção C - Indústrias de transformação;21.21-1;Fabricação de medicamentos para uso humano;0
+21220;169;Seção C - Indústrias de transformação;21.22-0;Fabricação de medicamentos para uso veterinário;0
+21238;170;Seção C - Indústrias de transformação;21.23-8;Fabricação de preparações farmacêuticas;0
+22111;171;Seção C - Indústrias de transformação;22.11-1;Fabricação de pneumáticos e de câmaras-de-ar;0
+22129;172;Seção C - Indústrias de transformação;22.12-9;Reforma de pneumáticos usados;0
+22196;173;Seção C - Indústrias de transformação;22.19-6;Fabricação de artefatos de borracha não especificados anteriormente;0
+22218;174;Seção C - Indústrias de transformação;22.21-8;Fabricação de laminados planos e tubulares de material plástico;0
+22226;175;Seção C - Indústrias de transformação;22.22-6;Fabricação de embalagens de material plástico;0
+22234;176;Seção C - Indústrias de transformação;22.23-4;Fabricação de tubos e acessórios de material plástico para uso na construção;0
+22293;177;Seção C - Indústrias de transformação;22.29-3;Fabricação de artefatos de material plástico não especificados anteriormente;0
+23117;178;Seção C - Indústrias de transformação;23.11-7;Fabricação de vidro plano e de segurança;0
+23125;179;Seção C - Indústrias de transformação;23.12-5;Fabricação de embalagens de vidro;0
+23192;180;Seção C - Indústrias de transformação;23.19-2;Fabricação de artigos de vidro;0
+23206;181;Seção C - Indústrias de transformação;23.20-6;Fabricação de cimento;0
+23303;182;Seção C - Indústrias de transformação;23.30-3;Fabricação de artefatos de concreto, cimento, fibrocimento, gesso e materiais semelhantes;0
+23419;183;Seção C - Indústrias de transformação;23.41-9;Fabricação de produtos cerâmicos refratários;0
+23427;184;Seção C - Indústrias de transformação;23.42-7;Fabricação de produtos cerâmicos não-refratários para uso estrutural na construção;0
+23494;185;Seção C - Indústrias de transformação;23.49-4;Fabricação de produtos cerâmicos não-refratários não especificados anteriormente;0
+23915;186;Seção C - Indústrias de transformação;23.91-5;Aparelhamento e outros trabalhos em pedras;0
+23923;187;Seção C - Indústrias de transformação;23.92-3;Fabricação de cal e gesso;0
+23991;188;Seção C - Indústrias de transformação;23.99-1;Fabricação de produtos de minerais não-metálicos não especificados anteriormente;0
+24113;189;Seção C - Indústrias de transformação;24.11-3;Produção de ferro-gusa;0
+24121;190;Seção C - Indústrias de transformação;24.12-1;Produção de ferroligas;0
+24211;191;Seção C - Indústrias de transformação;24.21-1;Produção de semi-acabados de aço;0
+24229;192;Seção C - Indústrias de transformação;24.22-9;Produção de laminados planos de aço;0
+24237;193;Seção C - Indústrias de transformação;24.23-7;Produção de laminados longos de aço;0
+24245;194;Seção C - Indústrias de transformação;24.24-5;Produção de relaminados, trefilados e perfilados de aço;0
+24318;195;Seção C - Indústrias de transformação;24.31-8;Produção de tubos de aço com costura;0
+24393;196;Seção C - Indústrias de transformação;24.39-3;Produção de outros tubos de ferro e aço;0
+24415;197;Seção C - Indústrias de transformação;24.41-5;Metalurgia do alumínio e suas ligas;0
+24423;198;Seção C - Indústrias de transformação;24.42-3;Metalurgia dos metais preciosos;0
+24431;199;Seção C - Indústrias de transformação;24.43-1;Metalurgia do cobre;0
+24491;200;Seção C - Indústrias de transformação;24.49-1;Metalurgia dos metais não-ferrosos e suas ligas não especificados anteriormente;0
+24512;201;Seção C - Indústrias de transformação;24.51-2;Fundição de ferro e aço;0
+24521;202;Seção C - Indústrias de transformação;24.52-1;Fundição de metais não-ferrosos e suas ligas;0
+25110;203;Seção C - Indústrias de transformação;25.11-0;Fabricação de estruturas metálicas;0
+25128;204;Seção C - Indústrias de transformação;25.12-8;Fabricação de esquadrias de metal;0
+25136;205;Seção C - Indústrias de transformação;25.13-6;Fabricação de obras de caldeiraria pesada;0
+25217;206;Seção C - Indústrias de transformação;25.21-7;Fabricação de tanques, reservatórios metálicos e caldeiras para aquecimento central;0
+25225;207;Seção C - Indústrias de transformação;25.22-5;Fabricação de caldeiras geradoras de vapor, exceto para aquecimento central e para veículos;0
+25314;208;Seção C - Indústrias de transformação;25.31-4;Produção de forjados de aço e de metais não-ferrosos e suas ligas;0
+25322;209;Seção C - Indústrias de transformação;25.32-2;"Produção de artefatos estampados de metal; metalurgia do pó";0
+25390;210;Seção C - Indústrias de transformação;25.39-0;Serviços de usinagem, solda, tratamento e revestimento em metais;0
+25411;211;Seção C - Indústrias de transformação;25.41-1;Fabricação de artigos de cutelaria;0
+25420;212;Seção C - Indústrias de transformação;25.42-0;Fabricação de artigos de serralheria, exceto esquadrias;0
+25438;213;Seção C - Indústrias de transformação;25.43-8;Fabricação de ferramentas;0
+25501;214;Seção C - Indústrias de transformação;25.50-1;Fabricação de equipamento bélico pesado, armas de fogo e munições;0
+25918;215;Seção C - Indústrias de transformação;25.91-8;Fabricação de embalagens metálicas;0
+25926;216;Seção C - Indústrias de transformação;25.92-6;Fabricação de produtos de trefilados de metal;0
+25934;217;Seção C - Indústrias de transformação;25.93-4;Fabricação de artigos de metal para uso doméstico e pessoal;0
+25993;218;Seção C - Indústrias de transformação;25.99-3;Fabricação de produtos de metal não especificados anteriormente;0
+26108;219;Seção C - Indústrias de transformação;26.10-8;Fabricação de componentes eletrônicos;0
+26213;220;Seção C - Indústrias de transformação;26.21-3;Fabricação de equipamentos de informática;0
+26221;221;Seção C - Indústrias de transformação;26.22-1;Fabricação de periféricos para equipamentos de informática;0
+26311;222;Seção C - Indústrias de transformação;26.31-1;Fabricação de equipamentos transmissores de comunicação;0
+26329;223;Seção C - Indústrias de transformação;26.32-9;Fabricação de aparelhos telefônicos e de outros equipamentos de comunicação;0
+26400;224;Seção C - Indústrias de transformação;26.40-0;Fabricação de aparelhos de recepção, reprodução, gravação e amplificação de áudio e vídeo;0
+26515;225;Seção C - Indústrias de transformação;26.51-5;Fabricação de aparelhos e equipamentos de medida, teste e controle;0
+26523;226;Seção C - Indústrias de transformação;26.52-3;Fabricação de cronômetros e relógios;0
+26604;227;Seção C - Indústrias de transformação;26.60-4;Fabricação de aparelhos eletromédicos e eletroterapêuticos e equipamentos de irradiação;0
+26701;228;Seção C - Indústrias de transformação;26.70-1;Fabricação de equipamentos e instrumentos ópticos, fotográficos e cinematográficos;0
+26809;229;Seção C - Indústrias de transformação;26.80-9;Fabricação de mídias virgens, magnéticas e ópticas;0
+27104;230;Seção C - Indústrias de transformação;27.10-4;Fabricação de geradores, transformadores e motores elétricos;0
+27210;231;Seção C - Indústrias de transformação;27.21-0;Fabricação de pilhas, baterias e acumuladores elétricos, exceto para veículos automotores;0
+27228;232;Seção C - Indústrias de transformação;27.22-8;Fabricação de baterias e acumuladores para veículos automotores;0
+27317;233;Seção C - Indústrias de transformação;27.31-7;Fabricação de aparelhos e equipamentos para distribuição e controle de energia elétrica;0
+27325;234;Seção C - Indústrias de transformação;27.32-5;Fabricação de material elétrico para instalações em circuito de consumo;0
+27333;235;Seção C - Indústrias de transformação;27.33-3;Fabricação de fios, cabos e condutores elétricos isolados;0
+27406;236;Seção C - Indústrias de transformação;27.40-6;Fabricação de lâmpadas e outros equipamentos de iluminação;0
+27511;237;Seção C - Indústrias de transformação;27.51-1;Fabricação de fogões, refrigeradores e máquinas de lavar e secar para uso doméstico;0
+27597;238;Seção C - Indústrias de transformação;27.59-7;Fabricação de aparelhos eletrodomésticos não especificados anteriormente;0
+27902;239;Seção C - Indústrias de transformação;27.90-2;Fabricação de equipamentos e aparelhos elétricos não especificados anteriormente;0
+28119;240;Seção C - Indústrias de transformação;28.11-9;Fabricação de motores e turbinas, exceto para aviões e veículos rodoviários;0
+28127;241;Seção C - Indústrias de transformação;28.12-7;Fabricação de equipamentos hidráulicos e pneumáticos, exceto válvulas;0
+28135;242;Seção C - Indústrias de transformação;28.13-5;Fabricação de válvulas, registros e dispositivos semelhantes;0
+28143;243;Seção C - Indústrias de transformação;28.14-3;Fabricação de compressores;0
+28151;244;Seção C - Indústrias de transformação;28.15-1;Fabricação de equipamentos de transmissão para fins industriais;0
+28216;245;Seção C - Indústrias de transformação;28.21-6;Fabricação de aparelhos e equipamentos para instalações térmicas;0
+28224;246;Seção C - Indústrias de transformação;28.22-4;Fabricação de máquinas, equipamentos e aparelhos para transporte e elevação de cargas e pessoas;0
+28232;247;Seção C - Indústrias de transformação;28.23-2;Fabricação de máquinas e aparelhos de refrigeração e ventilação para uso industrial e comercial;0
+28241;248;Seção C - Indústrias de transformação;28.24-1;Fabricação de aparelhos e equipamentos de ar condicionado;0
+28259;249;Seção C - Indústrias de transformação;28.25-9;Fabricação de máquinas e equipamentos para saneamento básico e ambiental;0
+28291;250;Seção C - Indústrias de transformação;28.29-1;Fabricação de máquinas e equipamentos de uso geral não especificados anteriormente;0
+28313;251;Seção C - Indústrias de transformação;28.31-3;Fabricação de tratores agrícolas;0
+28321;252;Seção C - Indústrias de transformação;28.32-1;Fabricação de equipamentos para irrigação agrícola;0
+28330;253;Seção C - Indústrias de transformação;28.33-0;Fabricação de máquinas e equipamentos para a agricultura e pecuária, exceto para irrigação;0
+28402;254;Seção C - Indústrias de transformação;28.40-2;Fabricação de máquinas-ferramenta;0
+28518;255;Seção C - Indústrias de transformação;28.51-8;Fabricação de máquinas e equipamentos para a prospecção e extração de petróleo;0
+28526;256;Seção C - Indústrias de transformação;28.52-6;Fabricação de outras máquinas e equipamentos para uso na extração mineral, exceto na extração de petróleo;0
+28534;257;Seção C - Indústrias de transformação;28.53-4;Fabricação de tratores, exceto agrícolas;0
+28542;258;Seção C - Indústrias de transformação;28.54-2;Fabricação de máquinas e equipamentos para terraplenagem, pavimentação e construção, exceto tratores;0
+28615;259;Seção C - Indústrias de transformação;28.61-5;Fabricação de máquinas para a indústria metalúrgica, exceto máquinas-ferramenta;0
+28623;260;Seção C - Indústrias de transformação;28.62-3;Fabricação de máquinas e equipamentos para as indústrias de alimentos, bebidas e fumo;0
+28631;261;Seção C - Indústrias de transformação;28.63-1;Fabricação de máquinas e equipamentos para a indústria têxtil;0
+28640;262;Seção C - Indústrias de transformação;28.64-0;Fabricação de máquinas e equipamentos para as indústrias do vestuário, do couro e de calçados;0
+28658;263;Seção C - Indústrias de transformação;28.65-8;Fabricação de máquinas e equipamentos para as indústrias de celulose, papel e papelão e artefatos;0
+28666;264;Seção C - Indústrias de transformação;28.66-6;Fabricação de máquinas e equipamentos para a indústria do plástico;0
+28691;265;Seção C - Indústrias de transformação;28.69-1;Fabricação de máquinas e equipamentos para uso industrial específico não especificados anteriormente;0
+29107;266;Seção C - Indústrias de transformação;29.10-7;Fabricação de automóveis, camionetas e utilitários;0
+29204;267;Seção C - Indústrias de transformação;29.20-4;Fabricação de caminhões e ônibus;0
+29301;268;Seção C - Indústrias de transformação;29.30-1;Fabricação de cabines, carrocerias e reboques para veículos automotores;0
+29417;269;Seção C - Indústrias de transformação;29.41-7;Fabricação de peças e acessórios para o sistema motor de veículos automotores;0
+29425;270;Seção C - Indústrias de transformação;29.42-5;Fabricação de peças e acessórios para os sistemas de marcha e transmissão de veículos automotores;0
+29433;271;Seção C - Indústrias de transformação;29.43-3;Fabricação de peças e acessórios para o sistema de freios de veículos automotores;0
+29441;272;Seção C - Indústrias de transformação;29.44-1;Fabricação de peças e acessórios para o sistema de direção e suspensão de veículos automotores;0
+29450;273;Seção C - Indústrias de transformação;29.45-0;Fabricação de material elétrico e eletrônico para veículos automotores, exceto baterias;0
+29492;274;Seção C - Indústrias de transformação;29.49-2;Fabricação de peças e acessórios para veículos automotores não especificados anteriormente;0
+29506;275;Seção C - Indústrias de transformação;29.50-6;Recondicionamento e recuperação de motores para veículos automotores;1
+30113;276;Seção C - Indústrias de transformação;30.11-3;Construção de embarcações e estruturas flutuantes;0
+30121;277;Seção C - Indústrias de transformação;30.12-1;Construção de embarcações para esporte e lazer;0
+30318;278;Seção C - Indústrias de transformação;30.31-8;Fabricação de locomotivas, vagões e outros materiais rodantes;0
+30326;279;Seção C - Indústrias de transformação;30.32-6;Fabricação de peças e acessórios para veículos ferroviários;0
+30415;280;Seção C - Indústrias de transformação;30.41-5;Fabricação de aeronaves;0
+30423;281;Seção C - Indústrias de transformação;30.42-3;Fabricação de turbinas, motores e outros componentes e peças para aeronaves;0
+30504;282;Seção C - Indústrias de transformação;30.50-4;Fabricação de veículos militares de combate;0
+30911;283;Seção C - Indústrias de transformação;30.91-1;Fabricação de motocicletas;0
+30920;284;Seção C - Indústrias de transformação;30.92-0;Fabricação de bicicletas e triciclos não-motorizados;1
+30997;285;Seção C - Indústrias de transformação;30.99-7;Fabricação de equipamentos de transporte não especificados anteriormente;0
+31012;286;Seção C - Indústrias de transformação;31.01-2;Fabricação de móveis com predominância de madeira;0
+31021;287;Seção C - Indústrias de transformação;31.02-1;Fabricação de móveis com predominância de metal;0
+31039;288;Seção C - Indústrias de transformação;31.03-9;Fabricação de móveis de outros materiais, exceto madeira e metal;0
+31047;289;Seção C - Indústrias de transformação;31.04-7;Fabricação de colchões;0
+32116;290;Seção C - Indústrias de transformação;32.11-6;Lapidação de gemas e fabricação de artefatos de ourivesaria e joalheria;0
+32124;291;Seção C - Indústrias de transformação;32.12-4;Fabricação de bijuterias e artefatos semelhantes;0
+32205;292;Seção C - Indústrias de transformação;32.20-5;Fabricação de instrumentos musicais;0
+32302;293;Seção C - Indústrias de transformação;32.30-2;Fabricação de artefatos para pesca e esporte;0
+32400;294;Seção C - Indústrias de transformação;32.40-0;Fabricação de brinquedos e jogos recreativos;0
+32507;295;Seção C - Indústrias de transformação;32.50-7;Fabricação de instrumentos e materiais para uso médico e odontológico e de artigos ópticos;0
+32914;296;Seção C - Indústrias de transformação;32.91-4;Fabricação de escovas, pincéis e vassouras;0
+32922;297;Seção C - Indústrias de transformação;32.92-2;Fabricação de equipamentos e acessórios para segurança e proteção pessoal e profissional;0
+32990;298;Seção C - Indústrias de transformação;32.99-0;Fabricação de produtos diversos não especificados anteriormente;0
+33112;299;Seção C - Indústrias de transformação;33.11-2;Manutenção e reparação de tanques, reservatórios metálicos e caldeiras, exceto para veículos;1
+33121;300;Seção C - Indústrias de transformação;33.12-1;Manutenção e reparação de equipamentos eletrônicos e ópticos;1
+33139;301;Seção C - Indústrias de transformação;33.13-9;Manutenção e reparação de máquinas e equipamentos elétricos;1
+33147;302;Seção C - Indústrias de transformação;33.14-7;Manutenção e reparação de máquinas e equipamentos da indústria mecânica;1
+33155;303;Seção C - Indústrias de transformação;33.15-5;Manutenção e reparação de veículos ferroviários;1
+33163;304;Seção C - Indústrias de transformação;33.16-3;Manutenção e reparação de aeronaves;1
+33171;305;Seção C - Indústrias de transformação;33.17-1;Manutenção e reparação de embarcações;1
+33198;306;Seção C - Indústrias de transformação;33.19-8;Manutenção e reparação de equipamentos e produtos não especificados anteriormente;1
+33210;307;Seção C - Indústrias de transformação;33.21-0;Instalação de máquinas e equipamentos industriais;0
+33295;308;Seção C - Indústrias de transformação;33.29-5;Instalação de equipamentos não especificados anteriormente;0
+35115;309;Seção D - Eletricidade e gás;35.11-5;Geração de energia elétrica;0
+35123;310;Seção D - Eletricidade e gás;35.12-3;Transmissão de energia elétrica;0
+35131;311;Seção D - Eletricidade e gás;35.13-1;Comércio atacadista de energia elétrica;1
+35140;312;Seção D - Eletricidade e gás;35.14-0;Distribuição de energia elétrica;1
+35204;313;Seção D - Eletricidade e gás;35.20-4;"Produção de gás; processamento de gás natural; distribuição de combustíveis gasosos por redes urbanas";0
+35301;314;Seção D - Eletricidade e gás;35.30-1;Produção e distribuição de vapor, água quente e ar condicionado;0
+36006;315;Seção E - Água, esgoto, atividades de gestão de resíduos e descontaminação;36.00-6;Captação, tratamento e distribuição de água;1
+37011;316;Seção E - Água, esgoto, atividades de gestão de resíduos e descontaminação;37.01-1;Gestão de redes de esgoto;1
+37029;317;Seção E - Água, esgoto, atividades de gestão de resíduos e descontaminação;37.02-9;Atividades relacionadas a esgoto, exceto a gestão de redes;1
+38114;318;Seção E - Água, esgoto, atividades de gestão de resíduos e descontaminação;38.11-4;Coleta de resíduos não-perigosos;1
+38122;319;Seção E - Água, esgoto, atividades de gestão de resíduos e descontaminação;38.12-2;Coleta de resíduos perigosos;1
+38211;320;Seção E - Água, esgoto, atividades de gestão de resíduos e descontaminação;38.21-1;Tratamento e disposição de resíduos não-perigosos;1
+38220;321;Seção E - Água, esgoto, atividades de gestão de resíduos e descontaminação;38.22-0;Tratamento e disposição de resíduos perigosos;1
+38319;322;Seção E - Água, esgoto, atividades de gestão de resíduos e descontaminação;38.31-9;Recuperação de materiais metálicos;1
+38327;323;Seção E - Água, esgoto, atividades de gestão de resíduos e descontaminação;38.32-7;Recuperação de materiais plásticos;1
+38394;324;Seção E - Água, esgoto, atividades de gestão de resíduos e descontaminação;38.39-4;Recuperação de materiais não especificados anteriormente;1
+39005;325;Seção E - Água, esgoto, atividades de gestão de resíduos e descontaminação;39.00-5;Descontaminação e outros serviços de gestão de resíduos;1
+41107;326;Seção F - Construção;41.10-7;Incorporação de empreendimentos imobiliários;0
+41204;327;Seção F - Construção;41.20-4;Construção de edifícios;0
+42111;328;Seção F - Construção;42.11-1;Construção de rodovias e ferrovias;0
+42120;329;Seção F - Construção;42.12-0;Construção de obras-de-arte especiais;0
+42138;330;Seção F - Construção;42.13-8;Obras de urbanização - ruas, praças e calçadas;0
+42219;331;Seção F - Construção;42.21-9;Obras para geração e distribuição de energia elétrica e para telecomunicações;1
+42227;332;Seção F - Construção;42.22-7;Construção de redes de abastecimento de água, coleta de esgoto e construções correlatas;1
+42235;333;Seção F - Construção;42.23-5;Construção de redes de transportes por dutos, exceto para água e esgoto;0
+42910;334;Seção F - Construção;42.91-0;Obras portuárias, marítimas e fluviais;0
+42928;335;Seção F - Construção;42.92-8;Montagem de instalações industriais e de estruturas metálicas;0
+42995;336;Seção F - Construção;42.99-5;Obras de engenharia civil não especificadas anteriormente;0
+43118;337;Seção F - Construção;43.11-8;Demolição e preparação de canteiros de obras;0
+43126;338;Seção F - Construção;43.12-6;Perfurações e sondagens;0
+43134;339;Seção F - Construção;43.13-4;Obras de terraplenagem;0
+43193;340;Seção F - Construção;43.19-3;Serviços de preparação do terreno não especificados anteriormente;0
+43215;341;Seção F - Construção;43.21-5;Instalações elétricas;0
+43223;342;Seção F - Construção;43.22-3;Instalações hidráulicas, de sistemas de ventilação e refrigeração;0
+43291;343;Seção F - Construção;43.29-1;Obras de instalações em construções não especificadas anteriormente;0
+43304;344;Seção F - Construção;43.30-4;Obras de acabamento;0
+43916;345;Seção F - Construção;43.91-6;Obras de fundações;0
+43991;346;Seção F - Construção;43.99-1;Serviços especializados para construção não especificados anteriormente;0
+45111;347;"Seção G - Comércio; reparação de veículos automotores e motocicletas";45.11-1;Comércio a varejo e por atacado de veículos automotores;0
+45129;348;"Seção G - Comércio; reparação de veículos automotores e motocicletas";45.12-9;Representantes comerciais e agentes do comércio de veículos automotores;0
+45200;349;"Seção G - Comércio; reparação de veículos automotores e motocicletas";45.20-0;Manutenção e reparação de veículos automotores;1
+45307;350;"Seção G - Comércio; reparação de veículos automotores e motocicletas";45.30-7;Comércio de peças e acessórios para veículos automotores;0
+45412;351;"Seção G - Comércio; reparação de veículos automotores e motocicletas";45.41-2;Comércio por atacado e a varejo de motocicletas, peças e acessórios;0
+45421;352;"Seção G - Comércio; reparação de veículos automotores e motocicletas";45.42-1;Representantes comerciais e agentes do comércio de motocicletas, peças e acessórios;0
+45439;353;"Seção G - Comércio; reparação de veículos automotores e motocicletas";45.43-9;Manutenção e reparação de motocicletas;1
+46117;354;"Seção G - Comércio; reparação de veículos automotores e motocicletas";46.11-7;Representantes comerciais e agentes do comércio de matérias-primas agrícolas e animais vivos;0
+46125;355;"Seção G - Comércio; reparação de veículos automotores e motocicletas";46.12-5;Representantes comerciais e agentes do comércio de combustíveis, minerais, produtos siderúrgicos e químicos;0
+46133;356;"Seção G - Comércio; reparação de veículos automotores e motocicletas";46.13-3;Representantes comerciais e agentes do comércio de madeira, material de construção e ferragens;0
+46141;357;"Seção G - Comércio; reparação de veículos automotores e motocicletas";46.14-1;Representantes comerciais e agentes do comércio de máquinas, equipamentos, embarcações e aeronaves;0
+46150;358;"Seção G - Comércio; reparação de veículos automotores e motocicletas";46.15-0;Representantes comerciais e agentes do comércio de eletrodomésticos, móveis e artigos de uso doméstico;0
+46168;359;"Seção G - Comércio; reparação de veículos automotores e motocicletas";46.16-8;Representantes comerciais e agentes do comércio de têxteis, vestuário, calçados e artigos de viagem;0
+46176;360;"Seção G - Comércio; reparação de veículos automotores e motocicletas";46.17-6;Representantes comerciais e agentes do comércio de produtos alimentícios, bebidas e fumo;0
+46184;361;"Seção G - Comércio; reparação de veículos automotores e motocicletas";46.18-4;Representantes comerciais e agentes do comércio especializado em produtos não especificados anteriormente;0
+46192;362;"Seção G - Comércio; reparação de veículos automotores e motocicletas";46.19-2;Representantes comerciais e agentes do comércio de mercadorias em geral não especializado;0
+46214;363;"Seção G - Comércio; reparação de veículos automotores e motocicletas";46.21-4;Comércio atacadista de café em grão;0
+46222;364;"Seção G - Comércio; reparação de veículos automotores e motocicletas";46.22-2;Comércio atacadista de soja;0
+46231;365;"Seção G - Comércio; reparação de veículos automotores e motocicletas";46.23-1;Comércio atacadista de animais vivos, alimentos para animais e matérias-primas agrícolas, exceto café e soja;0
+46311;366;"Seção G - Comércio; reparação de veículos automotores e motocicletas";46.31-1;Comércio atacadista de leite e laticínios;0
+46320;367;"Seção G - Comércio; reparação de veículos automotores e motocicletas";46.32-0;Comércio atacadista de cereais e leguminosas beneficiados, farinhas, amidos e féculas;0
+46338;368;"Seção G - Comércio; reparação de veículos automotores e motocicletas";46.33-8;Comércio atacadista de hortifrutigranjeiros;0
+46346;369;"Seção G - Comércio; reparação de veículos automotores e motocicletas";46.34-6;Comércio atacadista de carnes, produtos da carne e pescado;0
+46354;370;"Seção G - Comércio; reparação de veículos automotores e motocicletas";46.35-4;Comércio atacadista de bebidas;0
+46362;371;"Seção G - Comércio; reparação de veículos automotores e motocicletas";46.36-2;Comércio atacadista de produtos do fumo;0
+46371;372;"Seção G - Comércio; reparação de veículos automotores e motocicletas";46.37-1;Comércio atacadista especializado em produtos alimentícios não especificados anteriormente;0
+46397;373;"Seção G - Comércio; reparação de veículos automotores e motocicletas";46.39-7;Comércio atacadista de produtos alimentícios em geral;0
+46419;374;"Seção G - Comércio; reparação de veículos automotores e motocicletas";46.41-9;Comércio atacadista de tecidos, artefatos de tecidos e de armarinho;0
+46427;375;"Seção G - Comércio; reparação de veículos automotores e motocicletas";46.42-7;Comércio atacadista de artigos do vestuário e acessórios;0
+46435;376;"Seção G - Comércio; reparação de veículos automotores e motocicletas";46.43-5;Comércio atacadista de calçados e artigos de viagem;0
+46443;377;"Seção G - Comércio; reparação de veículos automotores e motocicletas";46.44-3;Comércio atacadista de produtos farmacêuticos para uso humano e veterinário;0
+46451;378;"Seção G - Comércio; reparação de veículos automotores e motocicletas";46.45-1;Comércio atacadista de instrumentos e materiais para uso médico, cirúrgico, ortopédico e odontológico;0
+46460;379;"Seção G - Comércio; reparação de veículos automotores e motocicletas";46.46-0;Comércio atacadista de cosméticos, produtos de perfumaria e de higiene pessoal;0
+46478;380;"Seção G - Comércio; reparação de veículos automotores e motocicletas";46.47-8;"Comércio atacadista de artigos de escritório e de papelaria; livros, jornais e outras publicações";0
+46494;381;"Seção G - Comércio; reparação de veículos automotores e motocicletas";46.49-4;Comércio atacadista de equipamentos e artigos de uso pessoal e doméstico não especificados anteriormente;0
+46516;382;"Seção G - Comércio; reparação de veículos automotores e motocicletas";46.51-6;Comércio atacadista de computadores, periféricos e suprimentos de informática;0
+46524;383;"Seção G - Comércio; reparação de veículos automotores e motocicletas";46.52-4;Comércio atacadista de componentes eletrônicos e equipamentos de telefonia e comunicação;0
+46613;384;"Seção G - Comércio; reparação de veículos automotores e motocicletas";46.61-3;"Comércio atacadista de máquinas, aparelhos e equipamentos para uso agropecuário; partes e peças";0
+46621;385;"Seção G - Comércio; reparação de veículos automotores e motocicletas";46.62-1;"Comércio atacadista de máquinas, equipamentos para terraplenagem, mineração e construção; partes e peças";0
+46630;386;"Seção G - Comércio; reparação de veículos automotores e motocicletas";46.63-0;"Comércio atacadista de máquinas e equipamentos para uso industrial; partes e peças";0
+46648;387;"Seção G - Comércio; reparação de veículos automotores e motocicletas";46.64-8;"Comércio atacadista de máquinas, aparelhos e equipamentos para uso odonto-médico-hospitalar; partes e peças";0
+46656;388;"Seção G - Comércio; reparação de veículos automotores e motocicletas";46.65-6;"Comércio atacadista de máquinas e equipamentos para uso comercial; partes e peças";0
+46699;389;"Seção G - Comércio; reparação de veículos automotores e motocicletas";46.69-9;"Comércio atacadista de máquinas, aparelhos e equipamentos não especificados anteriormente; partes e peças";0
+46711;390;"Seção G - Comércio; reparação de veículos automotores e motocicletas";46.71-1;Comércio atacadista de madeira e produtos derivados;0
+46729;391;"Seção G - Comércio; reparação de veículos automotores e motocicletas";46.72-9;Comércio atacadista de ferragens e ferramentas;0
+46737;392;"Seção G - Comércio; reparação de veículos automotores e motocicletas";46.73-7;Comércio atacadista de material elétrico;0
+46745;393;"Seção G - Comércio; reparação de veículos automotores e motocicletas";46.74-5;Comércio atacadista de cimento;0
+46796;394;"Seção G - Comércio; reparação de veículos automotores e motocicletas";46.79-6;Comércio atacadista especializado de materiais de construção não especificados anteriormente e de materiais de construção em geral;0
+46818;395;"Seção G - Comércio; reparação de veículos automotores e motocicletas";46.81-8;Comércio atacadista de combustíveis sólidos, líquidos e gasosos, exceto gás natural e GLP;0
+46826;396;"Seção G - Comércio; reparação de veículos automotores e motocicletas";46.82-6;Comércio atacadista de gás liqüefeito de petróleo (GLP);0
+46834;397;"Seção G - Comércio; reparação de veículos automotores e motocicletas";46.83-4;Comércio atacadista de defensivos agrícolas, adubos, fertilizantes e corretivos do solo;0
+46842;398;"Seção G - Comércio; reparação de veículos automotores e motocicletas";46.84-2;Comércio atacadista de produtos químicos e petroquímicos, exceto agroquímicos;0
+46851;399;"Seção G - Comércio; reparação de veículos automotores e motocicletas";46.85-1;Comércio atacadista de produtos siderúrgicos e metalúrgicos, exceto para construção;0
+46869;400;"Seção G - Comércio; reparação de veículos automotores e motocicletas";46.86-9;Comércio atacadista de papel e papelão em bruto e de embalagens;0
+46877;401;"Seção G - Comércio; reparação de veículos automotores e motocicletas";46.87-7;Comércio atacadista de resíduos e sucatas;1
+46893;402;"Seção G - Comércio; reparação de veículos automotores e motocicletas";46.89-3;Comércio atacadista especializado de outros produtos intermediários não especificados anteriormente;0
+46915;403;"Seção G - Comércio; reparação de veículos automotores e motocicletas";46.91-5;Comércio atacadista de mercadorias em geral, com predominância de produtos alimentícios;0
+46923;404;"Seção G - Comércio; reparação de veículos automotores e motocicletas";46.92-3;Comércio atacadista de mercadorias em geral, com predominância de insumos agropecuários;0
+46931;405;"Seção G - Comércio; reparação de veículos automotores e motocicletas";46.93-1;Comércio atacadista de mercadorias em geral, sem predominância de alimentos ou de insumos agropecuários;0
+47113;406;"Seção G - Comércio; reparação de veículos automotores e motocicletas";47.11-3;Comércio varejista de mercadorias em geral, com predominância de produtos alimentícios - hipermercados e supermercados;0
+47121;407;"Seção G - Comércio; reparação de veículos automotores e motocicletas";47.12-1;Comércio varejista de mercadorias em geral, com predominância de produtos alimentícios - minimercados, mercearias e armazéns;0
+47130;408;"Seção G - Comércio; reparação de veículos automotores e motocicletas";47.13-0;Comércio varejista de mercadorias em geral, sem predominância de produtos alimentícios;0
+47211;409;"Seção G - Comércio; reparação de veículos automotores e motocicletas";47.21-1;Comércio varejista de produtos de padaria, laticínio, doces, balas e semelhantes;0
+47229;410;"Seção G - Comércio; reparação de veículos automotores e motocicletas";47.22-9;Comércio varejista de carnes e pescados - açougues e peixarias;0
+47237;411;"Seção G - Comércio; reparação de veículos automotores e motocicletas";47.23-7;Comércio varejista de bebidas;0
+47245;412;"Seção G - Comércio; reparação de veículos automotores e motocicletas";47.24-5;Comércio varejista de hortifrutigranjeiros;0
+47296;413;"Seção G - Comércio; reparação de veículos automotores e motocicletas";47.29-6;"Comércio varejista de produtos alimentícios em geral ou especializado em produtos alimentícios não especificados anteriormente; produtos do fumo";0
+47318;414;"Seção G - Comércio; reparação de veículos automotores e motocicletas";47.31-8;Comércio varejista de combustíveis para veículos automotores;0
+47326;415;"Seção G - Comércio; reparação de veículos automotores e motocicletas";47.32-6;Comércio varejista de lubrificantes;0
+47415;416;"Seção G - Comércio; reparação de veículos automotores e motocicletas";47.41-5;Comércio varejista de tintas e materiais para pintura;0
+47423;417;"Seção G - Comércio; reparação de veículos automotores e motocicletas";47.42-3;Comércio varejista de material elétrico;0
+47431;418;"Seção G - Comércio; reparação de veículos automotores e motocicletas";47.43-1;Comércio varejista de vidros;0
+47440;419;"Seção G - Comércio; reparação de veículos automotores e motocicletas";47.44-0;Comércio varejista de ferragens, madeira e materiais de construção;0
+47512;420;"Seção G - Comércio; reparação de veículos automotores e motocicletas";47.51-2;Comércio varejista especializado de equipamentos e suprimentos de informática;0
+47521;421;"Seção G - Comércio; reparação de veículos automotores e motocicletas";47.52-1;Comércio varejista especializado de equipamentos de telefonia e comunicação;0
+47539;422;"Seção G - Comércio; reparação de veículos automotores e motocicletas";47.53-9;Comércio varejista especializado de eletrodomésticos e equipamentos de áudio e vídeo;0
+47547;423;"Seção G - Comércio; reparação de veículos automotores e motocicletas";47.54-7;Comércio varejista especializado de móveis, colchoaria e artigos de iluminação;0
+47555;424;"Seção G - Comércio; reparação de veículos automotores e motocicletas";47.55-5;Comércio varejista especializado de tecidos e artigos de cama, mesa e banho;0
+47563;425;"Seção G - Comércio; reparação de veículos automotores e motocicletas";47.56-3;Comércio varejista especializado de instrumentos musicais e acessórios;0
+47571;426;"Seção G - Comércio; reparação de veículos automotores e motocicletas";47.57-1;Comércio varejista especializado de peças e acessórios para aparelhos eletroeletrônicos para uso doméstico, exceto informática e comunicação;0
+47598;427;"Seção G - Comércio; reparação de veículos automotores e motocicletas";47.59-8;Comércio varejista de artigos de uso doméstico não especificados anteriormente;0
+47610;428;"Seção G - Comércio; reparação de veículos automotores e motocicletas";47.61-0;Comércio varejista de livros, jornais, revistas e papelaria;0
+47628;429;"Seção G - Comércio; reparação de veículos automotores e motocicletas";47.62-8;Comércio varejista de discos, CDs, DVDs e fitas;0
+47636;430;"Seção G - Comércio; reparação de veículos automotores e motocicletas";47.63-6;Comércio varejista de artigos recreativos e esportivos;0
+47717;431;"Seção G - Comércio; reparação de veículos automotores e motocicletas";47.71-7;Comércio varejista de produtos farmacêuticos para uso humano e veterinário;0
+47725;432;"Seção G - Comércio; reparação de veículos automotores e motocicletas";47.72-5;Comércio varejista de cosméticos, produtos de perfumaria e de higiene pessoal;0
+47733;433;"Seção G - Comércio; reparação de veículos automotores e motocicletas";47.73-3;Comércio varejista de artigos médicos e ortopédicos;0
+47741;434;"Seção G - Comércio; reparação de veículos automotores e motocicletas";47.74-1;Comércio varejista de artigos de óptica;0
+47814;435;"Seção G - Comércio; reparação de veículos automotores e motocicletas";47.81-4;Comércio varejista de artigos do vestuário e acessórios;0
+47822;436;"Seção G - Comércio; reparação de veículos automotores e motocicletas";47.82-2;Comércio varejista de calçados e artigos de viagem;0
+47831;437;"Seção G - Comércio; reparação de veículos automotores e motocicletas";47.83-1;Comércio varejista de jóias e relógios;0
+47849;438;"Seção G - Comércio; reparação de veículos automotores e motocicletas";47.84-9;Comércio varejista de gás liqüefeito de petróleo (GLP);0
+47857;439;"Seção G - Comércio; reparação de veículos automotores e motocicletas";47.85-7;Comércio varejista de artigos usados;1
+47890;440;"Seção G - Comércio; reparação de veículos automotores e motocicletas";47.89-0;Comércio varejista de outros produtos novos não especificados anteriormente;0
+47903;441;"Seção G - Comércio; reparação de veículos automotores e motocicletas";47.90-3;Comércio ambulante e outros tipos de comércio varejista;0
+49116;442;Seção H - Transporte, armazenagem e correio;49.11-6;Transporte ferroviário de carga;0
+49124;443;Seção H - Transporte, armazenagem e correio;49.12-4;Transporte metroferroviário de passageiros;1
+49213;444;Seção H - Transporte, armazenagem e correio;49.21-3;Transporte rodoviário coletivo de passageiros, com itinerário fixo, municipal e em região metropolitana;1
+49221;445;Seção H - Transporte, armazenagem e correio;49.22-1;Transporte rodoviário coletivo de passageiros, com itinerário fixo, intermunicipal, interestadual e internacional;1
+49230;446;Seção H - Transporte, armazenagem e correio;49.23-0;Transporte rodoviário de táxi;0
+49248;447;Seção H - Transporte, armazenagem e correio;49.24-8;Transporte escolar;1
+49299;448;Seção H - Transporte, armazenagem e correio;49.29-9;Transporte rodoviário coletivo de passageiros, sob regime de fretamento, e outros transportes rodoviários não especificados anteriormente;1
+49302;449;Seção H - Transporte, armazenagem e correio;49.30-2;Transporte rodoviário de carga;0
+49400;450;Seção H - Transporte, armazenagem e correio;49.40-0;Transporte dutoviário;0
+49507;451;Seção H - Transporte, armazenagem e correio;49.50-7;Trens turísticos, teleféricos e similares;1
+50114;452;Seção H - Transporte, armazenagem e correio;50.11-4;Transporte marítimo de cabotagem;0
+50122;453;Seção H - Transporte, armazenagem e correio;50.12-2;Transporte marítimo de longo curso;0
+50211;454;Seção H - Transporte, armazenagem e correio;50.21-1;Transporte por navegação interior de carga;0
+50220;455;Seção H - Transporte, armazenagem e correio;50.22-0;Transporte por navegação interior de passageiros em linhas regulares;1
+50301;456;Seção H - Transporte, armazenagem e correio;50.30-1;Navegação de apoio;0
+50912;457;Seção H - Transporte, armazenagem e correio;50.91-2;Transporte por navegação de travessia;1
+50998;458;Seção H - Transporte, armazenagem e correio;50.99-8;Transportes aquaviários não especificados anteriormente;1
+51111;459;Seção H - Transporte, armazenagem e correio;51.11-1;Transporte aéreo de passageiros regular;0
+51129;460;Seção H - Transporte, armazenagem e correio;51.12-9;Transporte aéreo de passageiros não-regular;0
+51200;461;Seção H - Transporte, armazenagem e correio;51.20-0;Transporte aéreo de carga;0
+51307;462;Seção H - Transporte, armazenagem e correio;51.30-7;Transporte espacial;0
+52117;463;Seção H - Transporte, armazenagem e correio;52.11-7;Armazenamento;0
+52125;464;Seção H - Transporte, armazenagem e correio;52.12-5;Carga e descarga;0
+52214;465;Seção H - Transporte, armazenagem e correio;52.21-4;Concessionárias de rodovias, pontes, túneis e serviços relacionados;0
+52222;466;Seção H - Transporte, armazenagem e correio;52.22-2;Terminais rodoviários e ferroviários;0
+52231;467;Seção H - Transporte, armazenagem e correio;52.23-1;Estacionamento de veículos;0
+52290;468;Seção H - Transporte, armazenagem e correio;52.29-0;Atividades auxiliares dos transportes terrestres não especificadas anteriormente;0
+52311;469;Seção H - Transporte, armazenagem e correio;52.31-1;Gestão de portos e terminais;0
+52320;470;Seção H - Transporte, armazenagem e correio;52.32-0;Atividades de agenciamento marítimo;0
+52397;471;Seção H - Transporte, armazenagem e correio;52.39-7;Atividades auxiliares dos transportes aquaviários não especificadas anteriormente;0
+52401;472;Seção H - Transporte, armazenagem e correio;52.40-1;Atividades auxiliares dos transportes aéreos;0
+52508;473;Seção H - Transporte, armazenagem e correio;52.50-8;Atividades relacionadas à organização do transporte de carga;0
+53105;474;Seção H - Transporte, armazenagem e correio;53.10-5;Atividades de Correio;0
+53202;475;Seção H - Transporte, armazenagem e correio;53.20-2;Atividades de malote e de entrega;0
+55108;476;Seção I - Alojamento e alimentação;55.10-8;Hotéis e similares;0
+55906;477;Seção I - Alojamento e alimentação;55.90-6;Outros tipos de alojamento não especificados anteriormente;0
+56112;478;Seção I - Alojamento e alimentação;56.11-2;Restaurantes e outros estabelecimentos de serviços de alimentação e bebidas;0
+56121;479;Seção I - Alojamento e alimentação;56.12-1;Serviços ambulantes de alimentação;0
+56201;480;Seção I - Alojamento e alimentação;56.20-1;Serviços de catering, bufê e outros serviços de comida preparada;0
+58115;481;Seção J - Informação e comunicação;58.11-5;Edição de livros;1
+58123;482;Seção J - Informação e comunicação;58.12-3;Edição de jornais;0
+58131;483;Seção J - Informação e comunicação;58.13-1;Edição de revistas;0
+58191;484;Seção J - Informação e comunicação;58.19-1;Edição de cadastros, listas e outros produtos gráficos;0
+58212;485;Seção J - Informação e comunicação;58.21-2;Edição integrada à impressão de livros;1
+58221;486;Seção J - Informação e comunicação;58.22-1;Edição integrada à impressão de jornais;0
+58239;487;Seção J - Informação e comunicação;58.23-9;Edição integrada à impressão de revistas;0
+58298;488;Seção J - Informação e comunicação;58.29-8;Edição integrada à impressão de cadastros, listas e outros produtos gráficos;0
+59111;489;Seção J - Informação e comunicação;59.11-1;Atividades de produção cinematográfica, de vídeos e de programas de televisão;0
+59120;490;Seção J - Informação e comunicação;59.12-0;Atividades de pós-produção cinematográfica, de vídeos e de programas de televisão;0
+59138;491;Seção J - Informação e comunicação;59.13-8;Distribuição cinematográfica, de vídeo e de programas de televisão;0
+59146;492;Seção J - Informação e comunicação;59.14-6;Atividades de exibição cinematográfica;0
+59201;493;Seção J - Informação e comunicação;59.20-1;Atividades de gravação de som e de edição de música;0
+60101;494;Seção J - Informação e comunicação;60.10-1;Atividades de rádio;0
+60217;495;Seção J - Informação e comunicação;60.21-7;Atividades de televisão aberta;0
+60225;496;Seção J - Informação e comunicação;60.22-5;Programadoras e atividades relacionadas à televisão por assinatura;0
+61108;497;Seção J - Informação e comunicação;61.10-8;Telecomunicações por fio;1
+61205;498;Seção J - Informação e comunicação;61.20-5;Telecomunicações sem fio;1
+61302;499;Seção J - Informação e comunicação;61.30-2;Telecomunicações por satélite;1
+61418;500;Seção J - Informação e comunicação;61.41-8;Operadoras de televisão por assinatura por cabo;0
+61426;501;Seção J - Informação e comunicação;61.42-6;Operadoras de televisão por assinatura por microondas;0
+61434;502;Seção J - Informação e comunicação;61.43-4;Operadoras de televisão por assinatura por satélite;0
+61906;503;Seção J - Informação e comunicação;61.90-6;Outras atividades de telecomunicações;1
+62015;504;Seção J - Informação e comunicação;62.01-5;Desenvolvimento de programas de computador sob encomenda;0
+62023;505;Seção J - Informação e comunicação;62.02-3;Desenvolvimento e licenciamento de programas de computador customizáveis;0
+62031;506;Seção J - Informação e comunicação;62.03-1;Desenvolvimento e licenciamento de programas de computador não-customizáveis;0
+62040;507;Seção J - Informação e comunicação;62.04-0;Consultoria em tecnologia da informação;0
+62091;508;Seção J - Informação e comunicação;62.09-1;Suporte técnico, manutenção e outros serviços em tecnologia da informação;0
+63119;509;Seção J - Informação e comunicação;63.11-9;Tratamento de dados, provedores de serviços de aplicação e serviços de hospedagem na internet;0
+63194;510;Seção J - Informação e comunicação;63.19-4;Portais, provedores de conteúdo e outros serviços de informação na internet;0
+63917;511;Seção J - Informação e comunicação;63.91-7;Agências de notícias;0
+63992;512;Seção J - Informação e comunicação;63.99-2;Outras atividades de prestação de serviços de informação não especificadas anteriormente;0
+64107;513;Seção K - Atividades financeiras, de seguros e serviços relacionados;64.10-7;Banco Central;0
+64212;514;Seção K - Atividades financeiras, de seguros e serviços relacionados;64.21-2;Bancos comerciais;0
+64221;515;Seção K - Atividades financeiras, de seguros e serviços relacionados;64.22-1;Bancos múltiplos, com carteira comercial;0
+64239;516;Seção K - Atividades financeiras, de seguros e serviços relacionados;64.23-9;Caixas econômicas;0
+64247;517;Seção K - Atividades financeiras, de seguros e serviços relacionados;64.24-7;Crédito cooperativo;0
+64310;518;Seção K - Atividades financeiras, de seguros e serviços relacionados;64.31-0;Bancos múltiplos, sem carteira comercial;0
+64328;519;Seção K - Atividades financeiras, de seguros e serviços relacionados;64.32-8;Bancos de investimento;0
+64336;520;Seção K - Atividades financeiras, de seguros e serviços relacionados;64.33-6;Bancos de desenvolvimento;0
+64344;521;Seção K - Atividades financeiras, de seguros e serviços relacionados;64.34-4;Agências de fomento;0
+64352;522;Seção K - Atividades financeiras, de seguros e serviços relacionados;64.35-2;Crédito imobiliário;0
+64361;523;Seção K - Atividades financeiras, de seguros e serviços relacionados;64.36-1;Sociedades de crédito, financiamento e investimento - financeiras;0
+64379;524;Seção K - Atividades financeiras, de seguros e serviços relacionados;64.37-9;Sociedades de crédito ao microempreendedor;0
+64387;525;Seção K - Atividades financeiras, de seguros e serviços relacionados;64.38-7;Bancos de câmbio e outras instituições de intermediação não-monetária;0
+64409;526;Seção K - Atividades financeiras, de seguros e serviços relacionados;64.40-9;Arrendamento mercantil;0
+64506;527;Seção K - Atividades financeiras, de seguros e serviços relacionados;64.50-6;Sociedades de capitalização;0
+64611;528;Seção K - Atividades financeiras, de seguros e serviços relacionados;64.61-1;Holdings de instituições financeiras;0
+64620;529;Seção K - Atividades financeiras, de seguros e serviços relacionados;64.62-0;Holdings de instituições não-financeiras;0
+64638;530;Seção K - Atividades financeiras, de seguros e serviços relacionados;64.63-8;Outras sociedades de participação, exceto holdings;0
+64701;531;Seção K - Atividades financeiras, de seguros e serviços relacionados;64.70-1;Fundos de investimento;0
+64913;532;Seção K - Atividades financeiras, de seguros e serviços relacionados;64.91-3;Sociedades de fomento mercantil - factoring;0
+64921;533;Seção K - Atividades financeiras, de seguros e serviços relacionados;64.92-1;Securitização de créditos;0
+64930;534;Seção K - Atividades financeiras, de seguros e serviços relacionados;64.93-0;Administração de consórcios para aquisição de bens e direitos;0
+64999;535;Seção K - Atividades financeiras, de seguros e serviços relacionados;64.99-9;Outras atividades de serviços financeiros não especificadas anteriormente;0
+65111;536;Seção K - Atividades financeiras, de seguros e serviços relacionados;65.11-1;Seguros de vida;0
+65120;537;Seção K - Atividades financeiras, de seguros e serviços relacionados;65.12-0;Seguros não-vida;0
+65201;538;Seção K - Atividades financeiras, de seguros e serviços relacionados;65.20-1;Seguros-saúde;0
+65308;539;Seção K - Atividades financeiras, de seguros e serviços relacionados;65.30-8;Resseguros;0
+65413;540;Seção K - Atividades financeiras, de seguros e serviços relacionados;65.41-3;Previdência complementar fechada;0
+65421;541;Seção K - Atividades financeiras, de seguros e serviços relacionados;65.42-1;Previdência complementar aberta;0
+65502;542;Seção K - Atividades financeiras, de seguros e serviços relacionados;65.50-2;Planos de saúde;0
+66118;543;Seção K - Atividades financeiras, de seguros e serviços relacionados;66.11-8;Administração de bolsas e mercados de balcão organizados;0
+66126;544;Seção K - Atividades financeiras, de seguros e serviços relacionados;66.12-6;Atividades de intermediários em transações de títulos, valores mobiliários e mercadorias;0
+66134;545;Seção K - Atividades financeiras, de seguros e serviços relacionados;66.13-4;Administração de cartões de crédito;0
+66193;546;Seção K - Atividades financeiras, de seguros e serviços relacionados;66.19-3;Atividades auxiliares dos serviços financeiros não especificadas anteriormente;0
+66215;547;Seção K - Atividades financeiras, de seguros e serviços relacionados;66.21-5;Avaliação de riscos e perdas;0
+66223;548;Seção K - Atividades financeiras, de seguros e serviços relacionados;66.22-3;Corretores e agentes de seguros, de planos de previdência complementar e de saúde;0
+66291;549;Seção K - Atividades financeiras, de seguros e serviços relacionados;66.29-1;Atividades auxiliares dos seguros, da previdência complementar e dos planos de saúde não especificadas anteriormente;0
+66304;550;Seção K - Atividades financeiras, de seguros e serviços relacionados;66.30-4;Atividades de administração de fundos por contrato ou comissão;0
+68102;551;Seção L - Atividades imobiliárias;68.10-2;Atividades imobiliárias de imóveis próprios;0
+68218;552;Seção L - Atividades imobiliárias;68.21-8;Intermediação na compra, venda e aluguel de imóveis;0
+68226;553;Seção L - Atividades imobiliárias;68.22-6;Gestão e administração da propriedade imobiliária;0
+69117;554;Seção M - Atividades profissionais, científicas e técnicas;69.11-7;Atividades jurídicas, exceto cartórios;0
+69125;555;Seção M - Atividades profissionais, científicas e técnicas;69.12-5;Cartórios;0
+69206;556;Seção M - Atividades profissionais, científicas e técnicas;69.20-6;Atividades de contabilidade, consultoria e auditoria contábil e tributária;0
+70107;557;Seção M - Atividades profissionais, científicas e técnicas;70.10-7;Sedes de empresas e unidades administrativas locais;0
+70204;558;Seção M - Atividades profissionais, científicas e técnicas;70.20-4;Atividades de consultoria em gestão empresarial;0
+71111;559;Seção M - Atividades profissionais, científicas e técnicas;71.11-1;Serviços de arquitetura;0
+71120;560;Seção M - Atividades profissionais, científicas e técnicas;71.12-0;Serviços de engenharia;0
+71197;561;Seção M - Atividades profissionais, científicas e técnicas;71.19-7;Atividades técnicas relacionadas à arquitetura e engenharia;0
+71201;562;Seção M - Atividades profissionais, científicas e técnicas;71.20-1;Testes e análises técnicas;0
+72100;563;Seção M - Atividades profissionais, científicas e técnicas;72.10-0;Pesquisa e desenvolvimento experimental em ciências físicas e naturais;1
+72207;564;Seção M - Atividades profissionais, científicas e técnicas;72.20-7;Pesquisa e desenvolvimento experimental em ciências sociais e humanas;1
+73114;565;Seção M - Atividades profissionais, científicas e técnicas;73.11-4;Agências de publicidade;0
+73122;566;Seção M - Atividades profissionais, científicas e técnicas;73.12-2;Agenciamento de espaços para publicidade, exceto em veículos de comunicação;0
+73190;567;Seção M - Atividades profissionais, científicas e técnicas;73.19-0;Atividades de publicidade não especificadas anteriormente;0
+73203;568;Seção M - Atividades profissionais, científicas e técnicas;73.20-3;Pesquisas de mercado e de opinião pública;0
+74102;569;Seção M - Atividades profissionais, científicas e técnicas;74.10-2;Design e decoração de interiores;0
+74200;570;Seção M - Atividades profissionais, científicas e técnicas;74.20-0;Atividades fotográficas e similares;0
+74901;571;Seção M - Atividades profissionais, científicas e técnicas;74.90-1;Atividades profissionais, científicas e técnicas não especificadas anteriormente;0
+75001;572;Seção M - Atividades profissionais, científicas e técnicas;75.00-1;Atividades veterinárias;0
+77110;573;Seção N - Atividades administrativas e serviços complementares;77.11-0;Locação de automóveis sem condutor;0
+77195;574;Seção N - Atividades administrativas e serviços complementares;77.19-5;Locação de meios de transporte, exceto automóveis, sem condutor;0
+77217;575;Seção N - Atividades administrativas e serviços complementares;77.21-7;Aluguel de equipamentos recreativos e esportivos;0
+77225;576;Seção N - Atividades administrativas e serviços complementares;77.22-5;Aluguel de fitas de vídeo, DVDs e similares;0
+77233;577;Seção N - Atividades administrativas e serviços complementares;77.23-3;Aluguel de objetos do vestuário, jóias e acessórios;0
+77292;578;Seção N - Atividades administrativas e serviços complementares;77.29-2;Aluguel de objetos pessoais e domésticos não especificados anteriormente;0
+77314;579;Seção N - Atividades administrativas e serviços complementares;77.31-4;Aluguel de máquinas e equipamentos agrícolas sem operador;0
+77322;580;Seção N - Atividades administrativas e serviços complementares;77.32-2;Aluguel de máquinas e equipamentos para construção sem operador;0
+77331;581;Seção N - Atividades administrativas e serviços complementares;77.33-1;Aluguel de máquinas e equipamentos para escritório;0
+77390;582;Seção N - Atividades administrativas e serviços complementares;77.39-0;Aluguel de máquinas e equipamentos não especificados anteriormente;0
+77403;583;Seção N - Atividades administrativas e serviços complementares;77.40-3;Gestão de ativos intangíveis não-financeiros;0
+78108;584;Seção N - Atividades administrativas e serviços complementares;78.10-8;Seleção e agenciamento de mão-de-obra;0
+78205;585;Seção N - Atividades administrativas e serviços complementares;78.20-5;Locação de mão-de-obra temporária;0
+78302;586;Seção N - Atividades administrativas e serviços complementares;78.30-2;Fornecimento e gestão de recursos humanos para terceiros;0
+79112;587;Seção N - Atividades administrativas e serviços complementares;79.11-2;Agências de viagens;0
+79121;588;Seção N - Atividades administrativas e serviços complementares;79.12-1;Operadores turísticos;0
+79902;589;Seção N - Atividades administrativas e serviços complementares;79.90-2;Serviços de reservas e outros serviços de turismo não especificados anteriormente;0
+80111;590;Seção N - Atividades administrativas e serviços complementares;80.11-1;Atividades de vigilância e segurança privada;0
+80129;591;Seção N - Atividades administrativas e serviços complementares;80.12-9;Atividades de transporte de valores;0
+80200;592;Seção N - Atividades administrativas e serviços complementares;80.20-0;Atividades de monitoramento de sistemas de segurança;0
+80307;593;Seção N - Atividades administrativas e serviços complementares;80.30-7;Atividades de investigação particular;0
+81117;594;Seção N - Atividades administrativas e serviços complementares;81.11-7;Serviços combinados para apoio a edifícios, exceto condomínios prediais;0
+81125;595;Seção N - Atividades administrativas e serviços complementares;81.12-5;Condomínios prediais;0
+81214;596;Seção N - Atividades administrativas e serviços complementares;81.21-4;Limpeza em prédios e em domicílios;0
+81222;597;Seção N - Atividades administrativas e serviços complementares;81.22-2;Imunização e controle de pragas urbanas;1
+81290;598;Seção N - Atividades administrativas e serviços complementares;81.29-0;Atividades de limpeza não especificadas anteriormente;1
+81303;599;Seção N - Atividades administrativas e serviços complementares;81.30-3;Atividades paisagísticas;1
+82113;600;Seção N - Atividades administrativas e serviços complementares;82.11-3;Serviços combinados de escritório e apoio administrativo;0
+82199;601;Seção N - Atividades administrativas e serviços complementares;82.19-9;Fotocópias, preparação de documentos e outros serviços especializados de apoio administrativo;0
+82202;602;Seção N - Atividades administrativas e serviços complementares;82.20-2;Atividades de teleatendimento;1
+82300;603;Seção N - Atividades administrativas e serviços complementares;82.30-0;Atividades de organização de eventos, exceto culturais e esportivos;0
+82911;604;Seção N - Atividades administrativas e serviços complementares;82.91-1;Atividades de cobrança e informações cadastrais;0
+82920;605;Seção N - Atividades administrativas e serviços complementares;82.92-0;Envasamento e empacotamento sob contrato;0
+82997;606;Seção N - Atividades administrativas e serviços complementares;82.99-7;Atividades de serviços prestados principalmente às empresas não especificadas anteriormente;0
+84116;607;Seção O - Administração pública, defesa e seguridade social;84.11-6;Administração pública em geral;0
+84124;608;Seção O - Administração pública, defesa e seguridade social;84.12-4;Regulação das atividades de saúde, educação, serviços culturais e outros serviços sociais;1
+84132;609;Seção O - Administração pública, defesa e seguridade social;84.13-2;Regulação das atividades econômicas;0
+84213;610;Seção O - Administração pública, defesa e seguridade social;84.21-3;Relações exteriores;0
+84221;611;Seção O - Administração pública, defesa e seguridade social;84.22-1;Defesa;0
+84230;612;Seção O - Administração pública, defesa e seguridade social;84.23-0;Justiça;0
+84248;613;Seção O - Administração pública, defesa e seguridade social;84.24-8;Segurança e ordem pública;0
+84256;614;Seção O - Administração pública, defesa e seguridade social;84.25-6;Defesa Civil;1
+84302;615;Seção O - Administração pública, defesa e seguridade social;84.30-2;Seguridade social obrigatória;0
+85112;616;Seção P - Educação;85.11-2;Educação infantil - creche;0
+85121;617;Seção P - Educação;85.12-1;Educação infantil - pré-escola;0
+85139;618;Seção P - Educação;85.13-9;Ensino fundamental;0
+85201;619;Seção P - Educação;85.20-1;Ensino médio;0
+85317;620;Seção P - Educação;85.31-7;Educação superior - graduação;1
+85325;621;Seção P - Educação;85.32-5;Educação superior - graduação e pós-graduação;1
+85333;622;Seção P - Educação;85.33-3;Educação superior - pós-graduação e extensão;1
+85414;623;Seção P - Educação;85.41-4;Educação profissional de nível técnico;1
+85422;624;Seção P - Educação;85.42-2;Educação profissional de nível tecnológico;1
+85503;625;Seção P - Educação;85.50-3;Atividades de apoio à educação;1
+85911;626;Seção P - Educação;85.91-1;Ensino de esportes;0
+85929;627;Seção P - Educação;85.92-9;Ensino de arte e cultura;0
+85937;628;Seção P - Educação;85.93-7;Ensino de idiomas;0
+85996;629;Seção P - Educação;85.99-6;Atividades de ensino não especificadas anteriormente;0
+86101;630;Seção Q - Saúde humana e serviços sociais;86.10-1;Atividades de atendimento hospitalar;0
+86216;631;Seção Q - Saúde humana e serviços sociais;86.21-6;Serviços móveis de atendimento a urgências;0
+86224;632;Seção Q - Saúde humana e serviços sociais;86.22-4;Serviços de remoção de pacientes, exceto os serviços móveis de atendimento a urgências;0
+86305;633;Seção Q - Saúde humana e serviços sociais;86.30-5;Atividades de atenção ambulatorial executadas por médicos e odontólogos;0
+86402;634;Seção Q - Saúde humana e serviços sociais;86.40-2;Atividades de serviços de complementação diagnóstica e terapêutica;0
+86500;635;Seção Q - Saúde humana e serviços sociais;86.50-0;Atividades de profissionais da área de saúde, exceto médicos e odontólogos;0
+86607;636;Seção Q - Saúde humana e serviços sociais;86.60-7;Atividades de apoio à gestão de saúde;0
+86909;637;Seção Q - Saúde humana e serviços sociais;86.90-9;Atividades de atenção à saúde humana não especificadas anteriormente;0
+87115;638;Seção Q - Saúde humana e serviços sociais;87.11-5;Atividades de assistência a idosos, deficientes físicos, imunodeprimidos e convalescentes prestadas em residências coletivas e particulares;0
+87123;639;Seção Q - Saúde humana e serviços sociais;87.12-3;Atividades de fornecimento de infra-estrutura de apoio e assistência a paciente no domicílio;0
+87204;640;Seção Q - Saúde humana e serviços sociais;87.20-4;Atividades de assistência psicossocial e à saúde a portadores de distúrbios psíquicos, deficiência mental e dependência química;0
+87301;641;Seção Q - Saúde humana e serviços sociais;87.30-1;Atividades de assistência social prestadas em residências coletivas e particulares;0
+88006;642;Seção Q - Saúde humana e serviços sociais;88.00-6;Serviços de assistência social sem alojamento;0
+90019;643;Seção R - Artes, cultura, esporte e recreação;90.01-9;Artes cênicas, espetáculos e atividades complementares;0
+90027;644;Seção R - Artes, cultura, esporte e recreação;90.02-7;Criação artística;0
+90035;645;Seção R - Artes, cultura, esporte e recreação;90.03-5;Gestão de espaços para artes cênicas, espetáculos e outras atividades artísticas;0
+91015;646;Seção R - Artes, cultura, esporte e recreação;91.01-5;Atividades de bibliotecas e arquivos;1
+91023;647;Seção R - Artes, cultura, esporte e recreação;91.02-3;Atividades de museus e de exploração, restauração artística e conservação de lugares e prédios históricos e atrações similares;1
+91031;648;Seção R - Artes, cultura, esporte e recreação;91.03-1;Atividades de jardins botânicos, zoológicos, parques nacionais, reservas ecológicas e áreas de proteção ambiental;1
+92003;649;Seção R - Artes, cultura, esporte e recreação;92.00-3;Atividades de exploração de jogos de azar e apostas;0
+93115;650;Seção R - Artes, cultura, esporte e recreação;93.11-5;Gestão de instalações de esportes;0
+93123;651;Seção R - Artes, cultura, esporte e recreação;93.12-3;Clubes sociais, esportivos e similares;0
+93131;652;Seção R - Artes, cultura, esporte e recreação;93.13-1;Atividades de condicionamento físico;0
+93191;653;Seção R - Artes, cultura, esporte e recreação;93.19-1;Atividades esportivas não especificadas anteriormente;0
+93212;654;Seção R - Artes, cultura, esporte e recreação;93.21-2;Parques de diversão e parques temáticos;0
+93298;655;Seção R - Artes, cultura, esporte e recreação;93.29-8;Atividades de recreação e lazer não especificadas anteriormente;0
+94111;656;Seção S - Outras atividades de serviços;94.11-1;Atividades de organizações associativas patronais e empresariais;0
+94120;657;Seção S - Outras atividades de serviços;94.12-0;Atividades de organizações associativas profissionais;0
+94201;658;Seção S - Outras atividades de serviços;94.20-1;Atividades de organizações sindicais;0
+94308;659;Seção S - Outras atividades de serviços;94.30-8;Atividades de associações de defesa de direitos sociais;1
+94910;660;Seção S - Outras atividades de serviços;94.91-0;Atividades de organizações religiosas;0
+94928;661;Seção S - Outras atividades de serviços;94.92-8;Atividades de organizações políticas;0
+94936;662;Seção S - Outras atividades de serviços;94.93-6;Atividades de organizações associativas ligadas à cultura e à arte;0
+94995;663;Seção S - Outras atividades de serviços;94.99-5;Atividades associativas não especificadas anteriormente;1
+95118;664;Seção S - Outras atividades de serviços;95.11-8;Reparação e manutenção de computadores e de equipamentos periféricos;1
+95126;665;Seção S - Outras atividades de serviços;95.12-6;Reparação e manutenção de equipamentos de comunicação;1
+95215;666;Seção S - Outras atividades de serviços;95.21-5;Reparação e manutenção de equipamentos eletroeletrônicos de uso pessoal e doméstico;1
+95291;667;Seção S - Outras atividades de serviços;95.29-1;Reparação e manutenção de objetos e equipamentos pessoais e domésticos não especificados anteriormente;1
+96017;668;Seção S - Outras atividades de serviços;96.01-7;Lavanderias, tinturarias e toalheiros;0
+96025;669;Seção S - Outras atividades de serviços;96.02-5;Cabeleireiros e outras atividades de tratamento de beleza;0
+96033;670;Seção S - Outras atividades de serviços;96.03-3;Atividades funerárias e serviços relacionados;0
+96092;671;Seção S - Outras atividades de serviços;96.09-2;Atividades de serviços pessoais não especificadas anteriormente;0
+97005;672;Seção T - Serviços domésticos;97.00-5;Serviços domésticos;0
+99008;673;Seção U - Organismos internacionais e outras instituições extraterritoriais;99.00-8;Organismos internacionais e outras instituições extraterritoriais;0
