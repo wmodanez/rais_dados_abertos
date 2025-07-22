@@ -60,21 +60,26 @@ class ConversorParquet:
         # Inicializar filtros
         self.filtro_verdes = None
         self.filtro_cnae_personalizado = None
-               
+        
         # Inicializar filtro CNAE personalizado se especificado
         if self.arquivo_filtro_cnae:
             self.filtro_cnae_personalizado = FiltroCNAE(self.arquivo_filtro_cnae, self.nome_filtro_cnae)
             if self.filtro_cnae_personalizado.verificar_disponibilidade():
                 estatisticas = self.filtro_cnae_personalizado.obter_estatisticas(self.situacao_filtro_cnae)
-                logger.info(f"Filtro CNAE personalizado '{self.nome_filtro_cnae}' habilitado:")
-                logger.info(f"  Arquivo: {self.arquivo_filtro_cnae}")
-                logger.info(f"  Total de classes CNAE: {estatisticas['total_classes']}")
-                logger.info(f"  Classes filtradas: {estatisticas['classes_filtradas']}")
-                logger.info(f"  Percentual filtrado: {estatisticas['percentual_filtrado']:.2f}%")
-                logger.info(f"  Situação desejada: {self.situacao_filtro_cnae}")
+                logger.info(f"🎯 Filtro '{self.nome_filtro_cnae}' habilitado: {estatisticas['classes_filtradas']} classes ({estatisticas['percentual_filtrado']:.1f}%)")
             else:
                 logger.warning(f"Filtro CNAE personalizado '{self.nome_filtro_cnae}' solicitado mas arquivo não disponível")
                 self.arquivo_filtro_cnae = None
+        
+        # Inicializar filtro de empregos verdes se necessário (usando arquivo padrão)
+        if self.filtrar_empregos_verdes:
+            self.filtro_verdes = FiltroCNAE("db/cnae_classe_emprego_verde.csv", "Empregos Verdes")
+            if self.filtro_verdes.verificar_disponibilidade():
+                estatisticas = self.filtro_verdes.obter_estatisticas(1)
+                logger.info(f"🌱 Filtro de empregos verdes habilitado: {estatisticas['classes_filtradas']} classes ({estatisticas['percentual_filtrado']:.1f}%)")
+            else:
+                logger.warning("Filtro de empregos verdes solicitado mas arquivo CNAE não disponível")
+                self.filtrar_empregos_verdes = False
         
         # Criar diretório parquet se não existir
         Path("parquet").mkdir(exist_ok=True)
@@ -98,11 +103,11 @@ class ConversorParquet:
             logger.info("Conversor configurado - Arquivos TXT descompactados serão mantidos após conversão")
         
         if self.filtrar_empregos_verdes:
-            logger.info("Conversor configurado - Apenas empregos verdes serão incluídos na conversão")
+            logger.info("🌱 Conversor configurado - Apenas empregos verdes serão incluídos")
         elif self.arquivo_filtro_cnae:
-            logger.info(f"Conversor configurado - Apenas empregos da classificação '{self.nome_filtro_cnae}' serão incluídos na conversão")
+            logger.info(f"🎯 Conversor configurado - Apenas empregos da classificação '{self.nome_filtro_cnae}' serão incluídos")
         else:
-            logger.info("Conversor configurado - Todos os empregos serão incluídos na conversão")
+            logger.info("📊 Conversor configurado - Todos os empregos serão incluídos")
     
     def _detectar_workers_otimos(self) -> int:
         """
@@ -535,7 +540,10 @@ class ConversorParquet:
             # Aplicar filtros ANTES da conversão para reduzir processamento
             if self.filtrar_empregos_verdes and self.filtro_verdes:
                 logger.info("Aplicando filtro de empregos verdes...")
-                df_completo = self.filtro_verdes.filtrar_dataframe_verde(df_completo)
+                df_completo = self.filtro_verdes.filtrar_dataframe(
+                    df_completo, 
+                    situacao_desejada=1
+                )
             elif self.arquivo_filtro_cnae and self.filtro_cnae_personalizado:
                 logger.info(f"Aplicando filtro CNAE personalizado '{self.nome_filtro_cnae}'...")
                 df_completo = self.filtro_cnae_personalizado.filtrar_dataframe(
