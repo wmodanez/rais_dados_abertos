@@ -242,6 +242,26 @@ Exemplos de uso:
         metavar='CAMPO',
         help="Campos específicos a serem incluídos na conversão (ex: CNAE_2_0_CLASSE VINCULO_ATIVO_31_12 MUNICIPIO)"
     )
+
+    parser.add_argument(
+        "--arquivo-filtro-cnae",
+        type=str,
+        help="Caminho para arquivo CSV com classificação CNAE personalizada (deve ter colunas CLASSE_CNAE e SITUACAO)"
+    )
+    
+    parser.add_argument(
+        "--nome-filtro-cnae",
+        type=str,
+        default="CNAE",
+        help="Nome descritivo do filtro CNAE personalizado (padrão: CNAE)"
+    )
+    
+    parser.add_argument(
+        "--situacao-filtro-cnae",
+        type=int,
+        default=1,
+        help="Valor da coluna SITUACAO para filtrar no arquivo personalizado (padrão: 1)"
+    )
     
     return parser
 
@@ -328,7 +348,10 @@ def main():
                     max_workers=args.max_workers,
                     chunk_size=args.chunk_size,
                     campos_especificos=args.campos,
-                    limpar_arquivos_descompactados=args.limpar_descompactados
+                    limpar_arquivos_descompactados=args.limpar_descompactados,
+                    arquivo_filtro_cnae=args.arquivo_filtro_cnae,
+                    nome_filtro_cnae=args.nome_filtro_cnae,
+                    situacao_filtro_cnae=args.situacao_filtro_cnae
                 )
                 
                 # Executar apenas download
@@ -396,7 +419,10 @@ def main():
                     max_workers=args.max_workers,
                     chunk_size=args.chunk_size,
                     campos_especificos=args.campos,
-                    limpar_arquivos_descompactados=args.limpar_descompactados
+                    limpar_arquivos_descompactados=args.limpar_descompactados,
+                    arquivo_filtro_cnae=args.arquivo_filtro_cnae,
+                    nome_filtro_cnae=args.nome_filtro_cnae,
+                    situacao_filtro_cnae=args.situacao_filtro_cnae
                 )
                 
                 # Executar download e descompactação
@@ -446,7 +472,10 @@ def main():
                     max_workers=args.max_workers,
                     chunk_size=args.chunk_size,
                     campos_especificos=args.campos,
-                    limpar_arquivos_descompactados=args.limpar_descompactados
+                    limpar_arquivos_descompactados=args.limpar_descompactados,
+                    arquivo_filtro_cnae=args.arquivo_filtro_cnae,
+                    nome_filtro_cnae=args.nome_filtro_cnae,
+                    situacao_filtro_cnae=args.situacao_filtro_cnae
                 )
                 
                 # Executar apenas descompactação
@@ -495,7 +524,10 @@ def main():
                     max_workers=args.max_workers,
                     chunk_size=args.chunk_size,
                     campos_especificos=args.campos,
-                    limpar_arquivos_descompactados=args.limpar_descompactados
+                    limpar_arquivos_descompactados=args.limpar_descompactados,
+                    arquivo_filtro_cnae=args.arquivo_filtro_cnae,
+                    nome_filtro_cnae=args.nome_filtro_cnae,
+                    situacao_filtro_cnae=args.situacao_filtro_cnae
                 )
                 
                 # Executar pipeline
@@ -536,7 +568,10 @@ def main():
                     max_workers=args.max_workers,
                     chunk_size=args.chunk_size,
                     campos_especificos=args.campos,
-                    limpar_arquivos_descompactados=args.limpar_descompactados
+                    limpar_arquivos_descompactados=args.limpar_descompactados,
+                    arquivo_filtro_cnae=args.arquivo_filtro_cnae,
+                    nome_filtro_cnae=args.nome_filtro_cnae,
+                    situacao_filtro_cnae=args.situacao_filtro_cnae
                 )
                 
                 # Executar apenas conversão
@@ -580,7 +615,10 @@ def main():
                     max_workers=args.max_workers,
                     chunk_size=args.chunk_size,
                     campos_especificos=args.campos,
-                    limpar_arquivos_descompactados=args.limpar_descompactados
+                    limpar_arquivos_descompactados=args.limpar_descompactados,
+                    arquivo_filtro_cnae=args.arquivo_filtro_cnae,
+                    nome_filtro_cnae=args.nome_filtro_cnae,
+                    situacao_filtro_cnae=args.situacao_filtro_cnae
                 )
                 
                 # Executar pipeline (sem download)
@@ -616,7 +654,10 @@ def main():
                     max_workers=args.max_workers,
                     chunk_size=args.chunk_size,
                     campos_especificos=args.campos,
-                    limpar_arquivos_descompactados=args.limpar_descompactados
+                    limpar_arquivos_descompactados=args.limpar_descompactados,
+                    arquivo_filtro_cnae=args.arquivo_filtro_cnae,
+                    nome_filtro_cnae=args.nome_filtro_cnae,
+                    situacao_filtro_cnae=args.situacao_filtro_cnae
                 )
                 
                 # Executar apenas a consolidação
@@ -639,7 +680,10 @@ def main():
                     max_workers=args.max_workers,
                     chunk_size=args.chunk_size,
                     campos_especificos=args.campos,
-                    limpar_arquivos_descompactados=args.limpar_descompactados
+                    limpar_arquivos_descompactados=args.limpar_descompactados,
+                    arquivo_filtro_cnae=args.arquivo_filtro_cnae,
+                    nome_filtro_cnae=args.nome_filtro_cnae,
+                    situacao_filtro_cnae=args.situacao_filtro_cnae
                 )
                 
                 # Executar consolidação de todos os anos

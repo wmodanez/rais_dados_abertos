@@ -11,12 +11,13 @@ import multiprocessing
 
 # Importar funções de padronização de colunas
 from .utilitarios import padronizar_colunas_dataframe
+from .filtro_cnae import FiltroCNAE
 
 # Configuração de logging
 logger = logging.getLogger("conversor_parquet")
 
 class ConversorParquet:
-    def __init__(self, chunk_size: Optional[int] = None, max_workers: Optional[int] = None, campos_especificos: Optional[List[str]] = None, limpar_arquivos_descompactados: bool = False):
+    def __init__(self, chunk_size: Optional[int] = None, max_workers: Optional[int] = None, campos_especificos: Optional[List[str]] = None, limpar_arquivos_descompactados: bool = False, filtrar_empregos_verdes: bool = False, arquivo_filtro_cnae: Optional[str] = None, nome_filtro_cnae: str = "CNAE", situacao_filtro_cnae: int = 1):
         """
         Inicializa o conversor de arquivos TXT para Parquet.
         
@@ -28,6 +29,10 @@ class ConversorParquet:
             campos_especificos: Lista de campos específicos a serem incluídos na conversão.
                               Se None, todos os campos serão incluídos.
             limpar_arquivos_descompactados: Se True, apaga os arquivos TXT descompactados após a conversão.
+            filtrar_empregos_verdes: Se True, filtra apenas empregos classificados como verdes.
+            arquivo_filtro_cnae: Caminho para arquivo CSV com classificação CNAE personalizada.
+            nome_filtro_cnae: Nome descritivo do filtro CNAE personalizado.
+            situacao_filtro_cnae: Valor da coluna SITUACAO para filtrar no arquivo personalizado.
         """
         # Detectar número de workers automaticamente se não especificado
         if max_workers is None:
@@ -43,6 +48,33 @@ class ConversorParquet:
         
         # Flag para controlar limpeza de arquivos descompactados
         self.limpar_arquivos_descompactados = limpar_arquivos_descompactados
+        
+        # Flag para controlar filtro de empregos verdes
+        self.filtrar_empregos_verdes = filtrar_empregos_verdes
+        
+        # Parâmetros para filtro CNAE personalizado
+        self.arquivo_filtro_cnae = arquivo_filtro_cnae
+        self.nome_filtro_cnae = nome_filtro_cnae
+        self.situacao_filtro_cnae = situacao_filtro_cnae
+        
+        # Inicializar filtros
+        self.filtro_verdes = None
+        self.filtro_cnae_personalizado = None
+               
+        # Inicializar filtro CNAE personalizado se especificado
+        if self.arquivo_filtro_cnae:
+            self.filtro_cnae_personalizado = FiltroCNAE(self.arquivo_filtro_cnae, self.nome_filtro_cnae)
+            if self.filtro_cnae_personalizado.verificar_disponibilidade():
+                estatisticas = self.filtro_cnae_personalizado.obter_estatisticas(self.situacao_filtro_cnae)
+                logger.info(f"Filtro CNAE personalizado '{self.nome_filtro_cnae}' habilitado:")
+                logger.info(f"  Arquivo: {self.arquivo_filtro_cnae}")
+                logger.info(f"  Total de classes CNAE: {estatisticas['total_classes']}")
+                logger.info(f"  Classes filtradas: {estatisticas['classes_filtradas']}")
+                logger.info(f"  Percentual filtrado: {estatisticas['percentual_filtrado']:.2f}%")
+                logger.info(f"  Situação desejada: {self.situacao_filtro_cnae}")
+            else:
+                logger.warning(f"Filtro CNAE personalizado '{self.nome_filtro_cnae}' solicitado mas arquivo não disponível")
+                self.arquivo_filtro_cnae = None
         
         # Criar diretório parquet se não existir
         Path("parquet").mkdir(exist_ok=True)
@@ -64,6 +96,13 @@ class ConversorParquet:
             logger.info("Conversor configurado - Arquivos TXT descompactados serão apagados após conversão")
         else:
             logger.info("Conversor configurado - Arquivos TXT descompactados serão mantidos após conversão")
+        
+        if self.filtrar_empregos_verdes:
+            logger.info("Conversor configurado - Apenas empregos verdes serão incluídos na conversão")
+        elif self.arquivo_filtro_cnae:
+            logger.info(f"Conversor configurado - Apenas empregos da classificação '{self.nome_filtro_cnae}' serão incluídos na conversão")
+        else:
+            logger.info("Conversor configurado - Todos os empregos serão incluídos na conversão")
     
     def _detectar_workers_otimos(self) -> int:
         """
@@ -492,6 +531,17 @@ class ConversorParquet:
                     logger.info(f"Filtrando apenas os campos: {campos_disponiveis}")
                 else:
                     logger.warning("Nenhum dos campos solicitados foi encontrado no arquivo")
+            
+            # Aplicar filtros ANTES da conversão para reduzir processamento
+            if self.filtrar_empregos_verdes and self.filtro_verdes:
+                logger.info("Aplicando filtro de empregos verdes...")
+                df_completo = self.filtro_verdes.filtrar_dataframe_verde(df_completo)
+            elif self.arquivo_filtro_cnae and self.filtro_cnae_personalizado:
+                logger.info(f"Aplicando filtro CNAE personalizado '{self.nome_filtro_cnae}'...")
+                df_completo = self.filtro_cnae_personalizado.filtrar_dataframe(
+                    df_completo, 
+                    situacao_desejada=self.situacao_filtro_cnae
+                )
             
             # Adicionar coluna ANO
             df_completo = df_completo.with_columns([

@@ -20,7 +20,7 @@ class PipelineParalelo:
     Permite que download, descompactação e conversão sejam executados simultaneamente.
     """
     
-    def __init__(self, max_workers: Optional[int] = None, chunk_size: Optional[int] = None, campos_especificos: Optional[List[str]] = None, limpar_arquivos_descompactados: bool = False):
+    def __init__(self, max_workers: Optional[int] = None, chunk_size: Optional[int] = None, campos_especificos: Optional[List[str]] = None, limpar_arquivos_descompactados: bool = False, filtrar_empregos_verdes: bool = False, arquivo_filtro_cnae: Optional[str] = None, nome_filtro_cnae: str = "CNAE", situacao_filtro_cnae: int = 1):
         """
         Inicializa o pipeline paralelo.
         
@@ -29,11 +29,19 @@ class PipelineParalelo:
             chunk_size: Tamanho do chunk para conversão
             campos_especificos: Lista de campos específicos a serem incluídos na conversão
             limpar_arquivos_descompactados: Se True, apaga os arquivos TXT descompactados após a conversão
+            filtrar_empregos_verdes: Se True, filtra apenas empregos classificados como verdes
+            arquivo_filtro_cnae: Caminho para arquivo CSV com classificação CNAE personalizada
+            nome_filtro_cnae: Nome descritivo do filtro CNAE personalizado
+            situacao_filtro_cnae: Valor da coluna SITUACAO para filtrar no arquivo personalizado
         """
         self.max_workers = max_workers or 4
         self.chunk_size = chunk_size
         self.campos_especificos = campos_especificos
         self.limpar_arquivos_descompactados = limpar_arquivos_descompactados
+        self.filtrar_empregos_verdes = filtrar_empregos_verdes
+        self.arquivo_filtro_cnae = arquivo_filtro_cnae
+        self.nome_filtro_cnae = nome_filtro_cnae
+        self.situacao_filtro_cnae = situacao_filtro_cnae
         
         # Filas para comunicação entre etapas
         self.fila_download = Queue()
@@ -152,7 +160,16 @@ class PipelineParalelo:
         
         # Inicializar componentes
         descompactador = DescompactadorArquivos(max_workers=self.max_workers)
-        conversor = ConversorParquet(chunk_size=self.chunk_size, max_workers=self.max_workers, campos_especificos=self.campos_especificos, limpar_arquivos_descompactados=self.limpar_arquivos_descompactados)
+        conversor = ConversorParquet(
+            chunk_size=self.chunk_size, 
+            max_workers=self.max_workers, 
+            campos_especificos=self.campos_especificos, 
+            limpar_arquivos_descompactados=self.limpar_arquivos_descompactados,
+            filtrar_empregos_verdes=self.filtrar_empregos_verdes,
+            arquivo_filtro_cnae=self.arquivo_filtro_cnae,
+            nome_filtro_cnae=self.nome_filtro_cnae,
+            situacao_filtro_cnae=self.situacao_filtro_cnae
+        )
         
         # Marcar download como já finalizado (não há download)
         self.download_finalizado = True
@@ -351,7 +368,16 @@ class PipelineParalelo:
         logger.info("Iniciando pipeline de apenas conversão")
         
         # Inicializar conversor
-        conversor = ConversorParquet(chunk_size=self.chunk_size, max_workers=self.max_workers, campos_especificos=self.campos_especificos, limpar_arquivos_descompactados=self.limpar_arquivos_descompactados)
+        conversor = ConversorParquet(
+            chunk_size=self.chunk_size, 
+            max_workers=self.max_workers, 
+            campos_especificos=self.campos_especificos, 
+            limpar_arquivos_descompactados=self.limpar_arquivos_descompactados,
+            filtrar_empregos_verdes=self.filtrar_empregos_verdes,
+            arquivo_filtro_cnae=self.arquivo_filtro_cnae,
+            nome_filtro_cnae=self.nome_filtro_cnae,
+            situacao_filtro_cnae=self.situacao_filtro_cnae
+        )
         
         # Executar conversão
         resultado_conversao = conversor.converter_diretorio("files-unzip", ano=ano, consolidar=consolidar)
@@ -377,7 +403,16 @@ class PipelineParalelo:
         logger.info(f"Iniciando consolidação de arquivos do ano {ano}")
         
         # Inicializar conversor para usar seus métodos de consolidação
-        conversor = ConversorParquet(chunk_size=self.chunk_size, max_workers=self.max_workers, campos_especificos=self.campos_especificos, limpar_arquivos_descompactados=self.limpar_arquivos_descompactados)
+        conversor = ConversorParquet(
+            chunk_size=self.chunk_size, 
+            max_workers=self.max_workers, 
+            campos_especificos=self.campos_especificos, 
+            limpar_arquivos_descompactados=self.limpar_arquivos_descompactados,
+            filtrar_empregos_verdes=self.filtrar_empregos_verdes,
+            arquivo_filtro_cnae=self.arquivo_filtro_cnae,
+            nome_filtro_cnae=self.nome_filtro_cnae,
+            situacao_filtro_cnae=self.situacao_filtro_cnae
+        )
         
         try:
             # Executar consolidação
@@ -416,7 +451,16 @@ class PipelineParalelo:
         logger.info(f"Iniciando consolidação de todos os anos em {nome_arquivo_final}")
         
         # Inicializar conversor para usar seus métodos de consolidação
-        conversor = ConversorParquet(chunk_size=self.chunk_size, max_workers=self.max_workers, campos_especificos=self.campos_especificos, limpar_arquivos_descompactados=self.limpar_arquivos_descompactados)
+        conversor = ConversorParquet(
+            chunk_size=self.chunk_size, 
+            max_workers=self.max_workers, 
+            campos_especificos=self.campos_especificos, 
+            limpar_arquivos_descompactados=self.limpar_arquivos_descompactados,
+            filtrar_empregos_verdes=self.filtrar_empregos_verdes,
+            arquivo_filtro_cnae=self.arquivo_filtro_cnae,
+            nome_filtro_cnae=self.nome_filtro_cnae,
+            situacao_filtro_cnae=self.situacao_filtro_cnae
+        )
         
         try:
             # Executar consolidação de todos os anos
