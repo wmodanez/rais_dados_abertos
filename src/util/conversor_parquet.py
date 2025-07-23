@@ -1,6 +1,7 @@
 import os
 import logging
 import re
+import chardet
 from pathlib import Path
 from typing import Optional, List, Dict, Any
 import polars as pl
@@ -228,7 +229,35 @@ class ConversorParquet:
         Returns:
             Encoding detectado (padrão: 'latin1')
         """
-        encodings = ['latin1', 'iso-8859-1', 'utf-8', 'cp1252']
+        # Primeiro tentar usar chardet se disponível
+        try:            
+            # Ler uma amostra do arquivo para detectar encoding
+            with open(caminho_arquivo, 'rb') as f:
+                amostra = f.read(10000)  # Primeiros 10KB
+            
+            resultado = chardet.detect(amostra)
+            encoding_detectado = resultado['encoding']
+            confianca = resultado['confidence']
+            
+            if encoding_detectado and confianca > 0.5:
+                # Testar se o encoding detectado funciona
+                try:
+                    with open(caminho_arquivo, 'r', encoding=encoding_detectado) as f:
+                        # Tentar ler algumas linhas para testar o encoding
+                        for i, _ in enumerate(f):
+                            if i >= 5:  # Testar apenas as primeiras 5 linhas
+                                break
+                    logger.debug(f"Encoding detectado pelo chardet: '{encoding_detectado}' (confiança: {confianca:.2f}) para {caminho_arquivo}")
+                    return encoding_detectado
+                except UnicodeDecodeError:
+                    logger.warning(f"Encoding detectado pelo chardet '{encoding_detectado}' falhou no teste, tentando outros...")
+        except ImportError:
+            logger.debug("chardet não disponível, usando método manual")
+        except Exception as e:
+            logger.warning(f"Erro ao usar chardet: {e}")
+        
+        # Fallback: testar encodings conhecidos
+        encodings = ['latin1', 'iso-8859-1', 'utf-8', 'cp1252', 'windows-1252']
         
         for encoding in encodings:
             try:
@@ -237,7 +266,7 @@ class ConversorParquet:
                     for i, _ in enumerate(f):
                         if i >= 5:  # Testar apenas as primeiras 5 linhas
                             break
-                logger.debug(f"Encoding detectado: '{encoding}' para {caminho_arquivo}")
+                logger.info(f"Encoding detectado manualmente: '{encoding}' para {caminho_arquivo}")
                 return encoding
             except UnicodeDecodeError:
                 continue
@@ -366,15 +395,20 @@ class ConversorParquet:
             Schema do Polars ou None em caso de erro
         """
         try:
-            # Ler apenas o cabeçalho
+            # Tentar ler apenas o cabeçalho com configurações robustas
             df_cabecalho = pl.read_csv(
                 caminho_arquivo,
                 separator=separador,
                 n_rows=1,
                 encoding=encoding,
                 ignore_errors=True,
-                truncate_ragged_lines=True
+                truncate_ragged_lines=True,
+                try_parse_dates=False  # Evitar problemas com parsing de datas
             )
+            
+            if df_cabecalho.is_empty():
+                logger.error(f"Arquivo vazio ou sem cabeçalho: {caminho_arquivo}")
+                return None
             
             # Padronizar nomes das colunas
             mapeamento_colunas = padronizar_colunas_dataframe(df_cabecalho.columns)
@@ -382,16 +416,10 @@ class ConversorParquet:
             
             # Criar schema com tipos de dados apropriados usando nomes originais
             # (o Polars precisa ler com os nomes originais)
+            # Usar apenas Utf8 para evitar problemas com valores negativos
             schema = {}
             for coluna_original in df_cabecalho.columns:
-                coluna_padronizada = mapeamento_colunas[coluna_original]
-                # Para arquivos RAIS, usar tipos apropriados baseado no nome padronizado
-                if any(palavra in coluna_padronizada for palavra in ['ANO', 'MES', 'DIA', 'ID']):
-                    schema[coluna_original] = pl.Int64
-                elif any(palavra in coluna_padronizada for palavra in ['VALOR', 'SALARIO', 'REMUNERACAO']):
-                    schema[coluna_original] = pl.Float64
-                else:
-                    schema[coluna_original] = pl.Utf8
+                schema[coluna_original] = pl.Utf8  # Forçar todos os campos para texto
             
             # Armazenar mapeamento para uso posterior
             self._mapeamento_colunas = mapeamento_colunas
@@ -401,6 +429,66 @@ class ConversorParquet:
             
         except Exception as e:
             logger.error(f"Erro ao criar schema para {caminho_arquivo}: {e}")
+            # Tentar com encoding alternativo se o primeiro falhou
+            if encoding != 'latin1':
+                logger.info(f"Tentando novamente com encoding latin1 para {caminho_arquivo}")
+                try:
+                    df_cabecalho = pl.read_csv(
+                        caminho_arquivo,
+                        separator=separador,
+                        n_rows=1,
+                        encoding='latin1',
+                        ignore_errors=True,
+                        truncate_ragged_lines=True,
+                        try_parse_dates=False
+                    )
+                    
+                    if not df_cabecalho.is_empty():
+                        # Padronizar nomes das colunas
+                        mapeamento_colunas = padronizar_colunas_dataframe(df_cabecalho.columns)
+                        logger.info(f"Colunas padronizadas (fallback latin1) para {caminho_arquivo}: {len(mapeamento_colunas)} colunas processadas")
+                        
+                        # Criar schema - usar apenas Utf8 para evitar problemas
+                        schema = {}
+                        for coluna_original in df_cabecalho.columns:
+                            schema[coluna_original] = pl.Utf8  # Forçar todos os campos para texto
+                        
+                        # Armazenar mapeamento para uso posterior
+                        self._mapeamento_colunas = mapeamento_colunas
+                        
+                        logger.info(f"Schema criado com fallback latin1 (todos Utf8): {len(schema)} colunas para {caminho_arquivo}")
+                        return schema
+                        
+                except Exception as e2:
+                    logger.error(f"Erro também com fallback latin1 para {caminho_arquivo}: {e2}")
+            
+            # Último recurso: tentar sem schema específico
+            logger.warning(f"Tentando leitura sem schema específico para {caminho_arquivo}")
+            try:
+                df_cabecalho = pl.read_csv(
+                    caminho_arquivo,
+                    separator=separador,
+                    n_rows=1,
+                    encoding='latin1',
+                    ignore_errors=True,
+                    truncate_ragged_lines=True,
+                    try_parse_dates=False
+                )
+                
+                if not df_cabecalho.is_empty():
+                    # Padronizar nomes das colunas
+                    mapeamento_colunas = padronizar_colunas_dataframe(df_cabecalho.columns)
+                    logger.info(f"Colunas padronizadas (sem schema): {len(mapeamento_colunas)} colunas processadas")
+                    
+                    # Armazenar mapeamento para uso posterior
+                    self._mapeamento_colunas = mapeamento_colunas
+                    
+                    logger.info(f"Leitura sem schema bem-sucedida: {len(df_cabecalho.columns)} colunas para {caminho_arquivo}")
+                    return {}  # Retornar schema vazio para usar inferência automática
+                    
+            except Exception as e3:
+                logger.error(f"Erro também sem schema para {caminho_arquivo}: {e3}")
+            
             return None
     
     def converter_arquivo_txt_para_parquet(self, caminho_arquivo_txt: Path, ano_especifico: Optional[int] = None) -> bool:
@@ -487,13 +575,17 @@ class ConversorParquet:
             # Ler arquivo completo uma vez e aplicar transformações
             logger.info("Lendo arquivo completo e aplicando transformações...")
             
-            # Ler arquivo completo
+            # Ler arquivo completo com configurações robustas
+            # Forçar todos os campos para texto para evitar problemas de tipo
             df_completo = pl.read_csv(
                 caminho_arquivo_txt,
                 separator=separador,
                 encoding=encoding,
                 ignore_errors=True,
-                truncate_ragged_lines=True
+                truncate_ragged_lines=True,
+                try_parse_dates=False,  # Evitar problemas com parsing de datas
+                null_values=["", "NULL", "null", "None", "none"],  # Tratar valores nulos
+                dtypes={col: pl.Utf8 for col in schema.keys()} if schema else None  # Forçar todos os campos para texto
             )
             
             # Aplicar mapeamento de colunas para renomear PRIMEIRO
@@ -572,11 +664,16 @@ class ConversorParquet:
                         logger.debug(f"Chunk {chunk_idx} vazio, pulando...")
                         return False
                     
+                    # Forçar todos os campos para texto para evitar problemas de tipo
+                    df_chunk_convertido = df_chunk.with_columns([
+                        pl.col(col).cast(pl.Utf8, strict=False) for col in df_chunk.columns
+                    ])
+                    
                     # Salvar chunk como arquivo separado
                     nome_chunk = f"{nome_arquivo}_part{chunk_idx:04d}.parquet"
                     caminho_chunk = diretorio_destino / nome_chunk
                     
-                    df_chunk.write_parquet(str(caminho_chunk), compression="snappy")
+                    df_chunk_convertido.write_parquet(str(caminho_chunk), compression="snappy")
                     logger.debug(f"Chunk {chunk_idx + 1} salvo: {caminho_chunk} ({df_chunk.height} linhas)")
                     return True
                     
@@ -658,10 +755,23 @@ class ConversorParquet:
         
         logger.info(f"Iniciando conversão de arquivos TXT em {diretorio}")
         
-        # Encontrar arquivos TXT - sempre listar todos os arquivos .txt
+        # Encontrar arquivos TXT - filtrar por ano se especificado
         arquivos_txt = []
-        for arquivo in diretorio.glob("**/*.txt"):
-            arquivos_txt.append(arquivo)
+        if ano:
+            # Se ano especificado, procurar apenas na pasta do ano
+            ano_str = str(ano)
+            diretorio_ano = diretorio / ano_str
+            if diretorio_ano.exists():
+                for arquivo in diretorio_ano.glob("*.txt"):
+                    arquivos_txt.append(arquivo)
+                logger.info(f"Procurando arquivos TXT do ano {ano} em {diretorio_ano}")
+            else:
+                logger.warning(f"Diretório do ano {ano} não encontrado: {diretorio_ano}")
+        else:
+            # Se não especificado, listar todos os arquivos .txt
+            for arquivo in diretorio.glob("**/*.txt"):
+                arquivos_txt.append(arquivo)
+            logger.info("Procurando arquivos TXT em todos os anos")
         
         if not arquivos_txt:
             logger.info(f"Nenhum arquivo TXT encontrado em {diretorio}")
@@ -925,9 +1035,14 @@ class ConversorParquet:
                 logger.error("Nenhum arquivo foi lido com sucesso")
                 return {"status": "erro", "erro": "Nenhum arquivo foi lido com sucesso"}
             
-            # Concatenar todos os dataframes
+            # Concatenar todos os dataframes com tratamento de incompatibilidades de tipos
             logger.info(f"Concatenando {len(dataframes)} dataframes com {total_linhas} linhas totais")
-            df_final = pl.concat(dataframes)
+            
+            # Verificar e resolver incompatibilidades de tipos antes da concatenação
+            if len(dataframes) > 1:
+                df_final = self._concatenar_com_tratamento_tipos(dataframes)
+            else:
+                df_final = dataframes[0]
             
             # Salvar arquivo final consolidado
             arquivo_final = diretorio_parquet / nome_arquivo_final
@@ -970,6 +1085,89 @@ class ConversorParquet:
         except Exception as e:
             logger.error(f"Erro na consolidação final: {e}")
             return {"status": "erro", "erro": str(e)}
+    
+    def _concatenar_com_tratamento_tipos(self, dataframes: List[pl.DataFrame]) -> pl.DataFrame:
+        """
+        Concatena dataframes tratando incompatibilidades de tipos automaticamente.
+        
+        Args:
+            dataframes: Lista de dataframes para concatenar
+            
+        Returns:
+            DataFrame concatenado com tipos compatíveis
+        """
+        if not dataframes:
+            raise ValueError("Lista de dataframes vazia")
+        
+        if len(dataframes) == 1:
+            return dataframes[0]
+        
+        logger.info("Analisando incompatibilidades de tipos entre dataframes...")
+        
+        # Obter todos os nomes de colunas únicos
+        todas_colunas = set()
+        for df in dataframes:
+            todas_colunas.update(df.columns)
+        
+        # Analisar tipos de cada coluna em todos os dataframes
+        tipos_por_coluna = {}
+        for coluna in todas_colunas:
+            tipos_por_coluna[coluna] = set()
+            for df in dataframes:
+                if coluna in df.columns:
+                    tipos_por_coluna[coluna].add(str(df[coluna].dtype))
+        
+        # Identificar colunas com tipos incompatíveis
+        colunas_incompativeis = {}
+        for coluna, tipos in tipos_por_coluna.items():
+            if len(tipos) > 1:
+                colunas_incompativeis[coluna] = tipos
+                logger.info(f"Coluna '{coluna}' tem tipos incompatíveis: {tipos}")
+        
+        # Converter tipos para compatibilidade
+        dataframes_convertidos = []
+        for i, df in enumerate(dataframes):
+            df_convertido = df.clone()
+            
+            for coluna in todas_colunas:
+                if coluna not in df_convertido.columns:
+                    # Adicionar coluna ausente com valor padrão
+                    if coluna in colunas_incompativeis:
+                        # Usar string como tipo mais flexível para colunas problemáticas
+                        df_convertido = df_convertido.with_columns(pl.lit(None).cast(pl.Utf8).alias(coluna))
+                    else:
+                        # Para colunas sem problemas, usar o tipo mais comum
+                        tipos_mais_comuns = tipos_por_coluna[coluna]
+                        if 'Int64' in tipos_mais_comuns:
+                            df_convertido = df_convertido.with_columns(pl.lit(None).cast(pl.Int64).alias(coluna))
+                        elif 'Float64' in tipos_mais_comuns:
+                            df_convertido = df_convertido.with_columns(pl.lit(None).cast(pl.Float64).alias(coluna))
+                        else:
+                            df_convertido = df_convertido.with_columns(pl.lit(None).cast(pl.Utf8).alias(coluna))
+                elif coluna in colunas_incompativeis:
+                    # Converter para string para colunas com tipos incompatíveis
+                    try:
+                        df_convertido = df_convertido.with_columns(
+                            df_convertido[coluna].cast(pl.Utf8).alias(coluna)
+                        )
+                    except Exception as e:
+                        logger.warning(f"Erro ao converter coluna '{coluna}' para string no dataframe {i}: {e}")
+                        # Se falhar, tentar converter para string com tratamento de erro
+                        df_convertido = df_convertido.with_columns(
+                            df_convertido[coluna].cast(pl.Utf8, strict=False).alias(coluna)
+                        )
+            
+            dataframes_convertidos.append(df_convertido)
+        
+        # Agora concatenar os dataframes convertidos
+        logger.info("Concatenando dataframes com tipos compatíveis...")
+        try:
+            df_final = pl.concat(dataframes_convertidos)
+            logger.info(f"Concatenação bem-sucedida: {df_final.height} linhas, {len(df_final.columns)} colunas")
+            return df_final
+        except Exception as e:
+            logger.error(f"Erro na concatenação mesmo após conversão de tipos: {e}")
+            raise
     
     def consolidar_arquivos_ano(self, ano: int) -> None:
         """

@@ -261,7 +261,7 @@ class DescompactadorArquivos:
             logger.info("Nenhum arquivo .7z encontrado para descompactar")
             return 0, 0, 0
         
-        logger.info(f"Encontrados {len(arquivos_zip)} arquivos .7z para descompactar (filtro: ano={ano}, ano_inicio={ano_inicio}, ano_fim={ano_fim})")
+        #logger.info(f"Encontrados {len(arquivos_zip)} arquivos .7z para descompactar (filtro: ano={ano}, ano_inicio={ano_inicio}, ano_fim={ano_fim})")
         
         # Verificar quais arquivos precisam ser descompactados EM PARALELO
         logger.info("Verificando arquivos que precisam ser descompactados...")

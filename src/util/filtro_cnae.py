@@ -64,8 +64,8 @@ class FiltroCNAE:
             # Filtrar apenas as classes com a situação desejada
             df_filtrado = df_cnae.filter(pl.col("SITUACAO") == situacao_desejada)
             
-            # Extrair os códigos das classes filtradas
-            classes_filtradas = set(df_filtrado["CLASSE_CNAE"].to_list())
+            # Extrair os códigos das classes filtradas como strings
+            classes_filtradas = set(str(codigo) for codigo in df_filtrado["CLASSE_CNAE"].to_list())
             
             logger.info(f"Carregadas {len(classes_filtradas)} classes CNAE para {self.nome_filtro} (situação {situacao_desejada})")
             logger.debug(f"Classes filtradas: {sorted(classes_filtradas)}")
@@ -110,7 +110,9 @@ class FiltroCNAE:
         total_antes = df.height
         
         # Filtrar apenas registros com CNAE da classificação desejada
-        df_filtrado = df.filter(pl.col(coluna_cnae).is_in(classes_filtradas))
+        # Converter classes_filtradas para lista para compatibilidade com Polars
+        classes_lista = list(classes_filtradas)
+        df_filtrado = df.filter(pl.col(coluna_cnae).is_in(classes_lista))
         
         # Contar registros após o filtro
         total_depois = df_filtrado.height

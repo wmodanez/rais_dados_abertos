@@ -6,3 +6,4 @@ requests
 polars
 memory-profiler
 pyarrow
+chardet
