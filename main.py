@@ -174,7 +174,8 @@ Exemplos de uso:
     group.add_argument('--converter', action='store_true', help='Baixar, descompactar e converter para formato final')
     group.add_argument('--apenas-converter', action='store_true', help='Apenas converter arquivos já descompactados (não faz download)')
     group.add_argument('--descompactar-converter', action='store_true', help='Descompactar e converter arquivos já baixados (não faz download)')
-    group.add_argument('--apenas-consolidar', action='store_true', help='Apenas consolidar arquivos já convertidos em um único arquivo RAIS_ANO.parquet')
+    group.add_argument('--apenas-consolidar', action='store_true', help='Apenas consolidar arquivos já convertidos de um ano específico em um único arquivo RAIS_ANO.parquet')
+    group.add_argument('--apenas-consolidar-faixa', action='store_true', help='Apenas consolidar arquivos já convertidos de uma faixa de anos em arquivos RAIS_ANO.parquet')
     group.add_argument('--consolidar-todos-anos', action='store_true', help='Consolidar todos os arquivos RAIS_ANO.parquet em um único arquivo RAIS_COMPLETO.parquet')
     
     parser.add_argument(
@@ -295,6 +296,7 @@ def main():
             args.apenas_converter,
             args.descompactar_converter,
             args.apenas_consolidar,
+            args.apenas_consolidar_faixa,
             args.consolidar_todos_anos
         ])
         
@@ -555,10 +557,25 @@ def main():
                     logger.info("Pipeline paralelo concluído com sucesso")
         
         elif args.apenas_converter:
-            # Determinar ano para conversão
+            # Processar argumentos de faixa de anos
+            ano_inicio = None
+            ano_fim = None
             ano_conversao = args.ano
-            if args.faixa_anos and len(args.faixa_anos) >= 1:
-                ano_conversao = args.faixa_anos[0]
+            
+            if args.faixa_anos:
+                if len(args.faixa_anos) == 1:
+                    ano_inicio = args.faixa_anos[0]
+                    ano_fim = None  # Até o último disponível
+                    ano_conversao = args.faixa_anos[0]
+                    logger.info(f"Faixa de anos: do ano {ano_inicio} até o último disponível")
+                elif len(args.faixa_anos) == 2:
+                    ano_inicio = args.faixa_anos[0]
+                    ano_fim = args.faixa_anos[1]
+                    ano_conversao = None  # Usar faixa em vez de ano específico
+                    logger.info(f"Faixa de anos: do ano {ano_inicio} até {ano_fim}")
+                else:
+                    logger.error("--faixa-anos deve receber 1 ou 2 valores")
+                    sys.exit(1)
             
             with medidor.etapa("Conversão para Parquet"):
                 logger.info("Iniciando apenas conversão para Parquet...")
@@ -577,6 +594,8 @@ def main():
                 # Executar apenas conversão
                 resultado = pipeline.processar_apenas_conversao(
                     ano=ano_conversao,
+                    ano_inicio=ano_inicio,
+                    ano_fim=ano_fim,
                     consolidar=args.consolidacao
                 )
             
@@ -669,6 +688,47 @@ def main():
                     logger.info("Consolidação concluída com sucesso")
                 else:
                     print(f"\nErro na consolidação do ano {args.ano}: {resultado_consolidacao['erro']}")
+                    logger.error(f"Erro na consolidação: {resultado_consolidacao['erro']}")
+        
+        elif args.apenas_consolidar_faixa:
+            # Verificar se a faixa de anos foi especificada
+            if not args.faixa_anos or len(args.faixa_anos) != 2:
+                logger.error("--apenas-consolidar-faixa requer que uma faixa de anos seja especificada com --faixa-anos ANO_INICIO ANO_FIM")
+                sys.exit(1)
+            
+            ano_inicio = args.faixa_anos[0]
+            ano_fim = args.faixa_anos[1]
+            
+            with medidor.etapa("Consolidação de Faixa"):
+                logger.info(f"Iniciando apenas consolidação de arquivos da faixa {ano_inicio}-{ano_fim}...")
+                
+                # Criar pipeline paralelo para usar seu método de consolidação
+                pipeline = PipelineParalelo(
+                    max_workers=args.max_workers,
+                    chunk_size=args.chunk_size,
+                    campos_especificos=args.campos,
+                    limpar_arquivos_descompactados=args.limpar_descompactados,
+                    arquivo_filtro_cnae=args.arquivo_filtro_cnae,
+                    nome_filtro_cnae=args.nome_filtro_cnae,
+                    situacao_filtro_cnae=args.situacao_filtro_cnae
+                )
+                
+                # Executar apenas a consolidação da faixa
+                resultado_consolidacao = pipeline.consolidar_faixa_anos(ano_inicio, ano_fim)
+                
+                if resultado_consolidacao['status'] == 'sucesso':
+                    print(f"\nConsolidação da faixa {ano_inicio}-{ano_fim} concluída com sucesso")
+                    print(f"  Anos consolidados: {resultado_consolidacao['anos_consolidados']}")
+                    print(f"  Total de anos: {resultado_consolidacao['total_anos']}")
+                    logger.info("Consolidação de faixa concluída com sucesso")
+                elif resultado_consolidacao['status'] == 'parcial':
+                    print(f"\nConsolidação parcial da faixa {ano_inicio}-{ano_fim}")
+                    print(f"  Anos consolidados com sucesso: {resultado_consolidacao['anos_consolidados']}")
+                    print(f"  Anos com erro: {resultado_consolidacao['anos_com_erro']}")
+                    print(f"  Sucessos: {resultado_consolidacao['sucessos']}, Falhas: {resultado_consolidacao['falhas']}")
+                    logger.warning("Consolidação de faixa concluída parcialmente")
+                else:
+                    print(f"\nErro na consolidação da faixa {ano_inicio}-{ano_fim}: {resultado_consolidacao['erro']}")
                     logger.error(f"Erro na consolidação: {resultado_consolidacao['erro']}")
         
         elif args.consolidar_todos_anos:

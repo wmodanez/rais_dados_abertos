@@ -141,10 +141,24 @@ class PipelineParalelo:
             future_conversao.result()
         
         # Executar consolidação se solicitada
-        if consolidar and ano:
-            logger.info("Iniciando consolidação final...")
-            conversor.consolidar_arquivos_ano(ano)
-            conversor.limpar_chunks_antigos(ano)
+        if consolidar:
+            if ano:
+                # Consolidação de ano específico
+                logger.info("Iniciando consolidação final...")
+                conversor.consolidar_arquivos_ano(ano)
+                conversor.limpar_chunks_antigos(ano)
+            elif ano_inicio and ano_fim:
+                # Consolidação de faixa de anos
+                logger.info("Iniciando consolidação de faixa de anos...")
+                resultado_consolidacao = self.consolidar_faixa_anos(ano_inicio, ano_fim)
+                if resultado_consolidacao['status'] == 'sucesso':
+                    logger.info(f"Consolidação da faixa {ano_inicio}-{ano_fim} concluída com sucesso")
+                elif resultado_consolidacao['status'] == 'parcial':
+                    logger.warning(f"Consolidação parcial da faixa {ano_inicio}-{ano_fim}: {resultado_consolidacao['sucessos']} sucessos, {resultado_consolidacao['falhas']} falhas")
+                else:
+                    logger.error(f"Erro na consolidação da faixa {ano_inicio}-{ano_fim}: {resultado_consolidacao['erro']}")
+            else:
+                logger.warning("Consolidação solicitada mas nenhum ano ou faixa especificada")
         
         return self.stats
     
@@ -210,6 +224,26 @@ class PipelineParalelo:
         
         # Marcar conversão como finalizada
         self.conversao_finalizada = True
+        
+        # Executar consolidação se solicitada
+        if consolidar:
+            if ano:
+                # Consolidação de ano específico
+                logger.info("Iniciando consolidação final...")
+                conversor.consolidar_arquivos_ano(ano)
+                conversor.limpar_chunks_antigos(ano)
+            elif ano_inicio and ano_fim:
+                # Consolidação de faixa de anos
+                logger.info("Iniciando consolidação de faixa de anos...")
+                resultado_consolidacao = self.consolidar_faixa_anos(ano_inicio, ano_fim)
+                if resultado_consolidacao['status'] == 'sucesso':
+                    logger.info(f"Consolidação da faixa {ano_inicio}-{ano_fim} concluída com sucesso")
+                elif resultado_consolidacao['status'] == 'parcial':
+                    logger.warning(f"Consolidação parcial da faixa {ano_inicio}-{ano_fim}: {resultado_consolidacao['sucessos']} sucessos, {resultado_consolidacao['falhas']} falhas")
+                else:
+                    logger.error(f"Erro na consolidação da faixa {ano_inicio}-{ano_fim}: {resultado_consolidacao['erro']}")
+            else:
+                logger.warning("Consolidação solicitada mas nenhum ano ou faixa especificada")
         
         logger.info("Pipeline sem download concluído")
         return self.stats
@@ -363,12 +397,16 @@ class PipelineParalelo:
     
     def processar_apenas_conversao(self, 
                                   ano: Optional[int] = None,
+                                  ano_inicio: Optional[int] = None,
+                                  ano_fim: Optional[int] = None,
                                   consolidar: bool = False) -> Dict[str, Any]:
         """
         Executa apenas a conversão de arquivos descompactados.
         
         Args:
             ano: Ano específico
+            ano_inicio: Ano inicial da faixa
+            ano_fim: Ano final da faixa
             consolidar: Se deve consolidar os arquivos
             
         Returns:
@@ -395,6 +433,26 @@ class PipelineParalelo:
         self.stats['conversao']['total'] = resultado_conversao['total']
         self.stats['conversao']['concluidos'] = resultado_conversao['convertidos']
         self.stats['conversao']['falhas'] = resultado_conversao['falhas']
+        
+        # Executar consolidação se solicitada
+        if consolidar:
+            if ano:
+                # Consolidação de ano específico
+                logger.info("Iniciando consolidação final...")
+                conversor.consolidar_arquivos_ano(ano)
+                conversor.limpar_chunks_antigos(ano)
+            elif ano_inicio and ano_fim:
+                # Consolidação de faixa de anos
+                logger.info("Iniciando consolidação de faixa de anos...")
+                resultado_consolidacao = self.consolidar_faixa_anos(ano_inicio, ano_fim)
+                if resultado_consolidacao['status'] == 'sucesso':
+                    logger.info(f"Consolidação da faixa {ano_inicio}-{ano_fim} concluída com sucesso")
+                elif resultado_consolidacao['status'] == 'parcial':
+                    logger.warning(f"Consolidação parcial da faixa {ano_inicio}-{ano_fim}: {resultado_consolidacao['sucessos']} sucessos, {resultado_consolidacao['falhas']} falhas")
+                else:
+                    logger.error(f"Erro na consolidação da faixa {ano_inicio}-{ano_fim}: {resultado_consolidacao['erro']}")
+            else:
+                logger.warning("Consolidação solicitada mas nenhum ano ou faixa especificada")
         
         logger.info("Pipeline de apenas conversão concluído")
         return self.stats
@@ -487,6 +545,71 @@ class PipelineParalelo:
         except Exception as e:
             logger.error(f"Erro durante a consolidação de todos os anos: {e}")
             return {
+                'status': 'erro',
+                'erro': str(e)
+            }
+    
+    def consolidar_faixa_anos(self, ano_inicio: int, ano_fim: int) -> Dict[str, Any]:
+        """
+        Consolida arquivos convertidos de uma faixa de anos.
+        
+        Args:
+            ano_inicio: Ano inicial da faixa
+            ano_fim: Ano final da faixa
+            
+        Returns:
+            Dicionário com estatísticas da consolidação
+        """
+        logger.info(f"Iniciando consolidação de arquivos da faixa {ano_inicio}-{ano_fim}")
+        
+        # Inicializar conversor para usar seus métodos de consolidação
+        conversor = ConversorParquet(
+            chunk_size=self.chunk_size, 
+            max_workers=self.max_workers, 
+            campos_especificos=self.campos_especificos, 
+            limpar_arquivos_descompactados=self.limpar_arquivos_descompactados,
+            filtrar_empregos_verdes=self.filtrar_empregos_verdes,
+            arquivo_filtro_cnae=self.arquivo_filtro_cnae,
+            nome_filtro_cnae=self.nome_filtro_cnae,
+            situacao_filtro_cnae=self.situacao_filtro_cnae
+        )
+        
+        anos_consolidados = []
+        anos_com_erro = []
+        
+        try:
+            # Consolidar cada ano da faixa
+            for ano in range(ano_inicio, ano_fim + 1):
+                logger.info(f"Consolidando ano {ano}...")
+                try:
+                    # Executar consolidação
+                    conversor.consolidar_arquivos_ano(ano)
+                    
+                    # Limpar chunks antigos
+                    conversor.limpar_chunks_antigos(ano)
+                    
+                    anos_consolidados.append(ano)
+                    logger.info(f"Consolidação do ano {ano} concluída com sucesso")
+                    
+                except Exception as e:
+                    logger.error(f"Erro durante a consolidação do ano {ano}: {e}")
+                    anos_com_erro.append(ano)
+            
+            # Retornar estatísticas da consolidação
+            return {
+                'faixa': f"{ano_inicio}-{ano_fim}",
+                'status': 'sucesso' if not anos_com_erro else 'parcial',
+                'anos_consolidados': anos_consolidados,
+                'anos_com_erro': anos_com_erro,
+                'total_anos': len(anos_consolidados) + len(anos_com_erro),
+                'sucessos': len(anos_consolidados),
+                'falhas': len(anos_com_erro)
+            }
+            
+        except Exception as e:
+            logger.error(f"Erro durante a consolidação da faixa {ano_inicio}-{ano_fim}: {e}")
+            return {
+                'faixa': f"{ano_inicio}-{ano_fim}",
                 'status': 'erro',
                 'erro': str(e)
             }
